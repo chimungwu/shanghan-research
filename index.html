@@ -54,6 +54,7 @@ const TENDENCY_COLORS = { "大溫":"#C0392B", "偏溫":"#E67E22", "平性":"#7F8
 function RadarChart({ fp, fp2, label, label2, size = 280 }) {
   const cx = size / 2, cy = size / 2;
   const R = size * 0.32;
+  const TOP_VIEWBOX_PADDING = 30;
   const angles = FLAVORS.map((_, i) => (Math.PI / 2) + (2 * Math.PI * i) / 5);
   const toXY = (angle, r) => [cx + r * Math.cos(angle), cy - r * Math.sin(angle)];
 
@@ -78,7 +79,7 @@ function RadarChart({ fp, fp2, label, label2, size = 280 }) {
   }
 
   return (
-    <svg viewBox={`0 0 ${size} ${size}`} style={{ width: "100%", maxWidth: size }}>
+    <svg viewBox={`0 ${-TOP_VIEWBOX_PADDING} ${size} ${size + TOP_VIEWBOX_PADDING}`} style={{ width: "100%", maxWidth: size }}>
       {/* Grid levels */}
       {levels.map(lv => {
         const r = (lv / maxVal) * R;
