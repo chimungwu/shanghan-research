@@ -774,6 +774,15 @@ function DetailPanel({ selected, compare, setCompare, isFav, onToggleFav, onAddC
 }
 
 function ComparePage({ compareList, setCompareList }) {
+  const EXTRA_COMPARE_GROUPS = [
+    { title: "發汗方", desc: "解表發汗代表方", formulas: ["麻黃湯", "桂枝湯", "桂枝加葛根湯", "葛根湯", "大青龍湯", "小青龍湯"] },
+    { title: "水氣方", desc: "利水化氣與治水代表方", formulas: ["五苓散", "真武湯", "茯苓桂枝白朮甘草湯", "豬苓湯"] },
+    { title: "瀉下方", desc: "攻下通腑代表方", formulas: ["大承氣湯", "小承氣湯", "調胃承氣湯", "麻子仁丸", "蜜煎導"] },
+    { title: "少陽和解", desc: "和解少陽代表方", formulas: ["小柴胡湯", "大柴胡湯", "柴胡桂枝湯", "柴胡加龍骨牡蠣湯"] },
+    { title: "溫中補虛", desc: "溫中散寒、補虛調中", formulas: ["小建中湯", "理中丸", "吳茱萸湯"] },
+    { title: "清氣分熱", desc: "清陽明氣分熱", formulas: ["白虎湯", "白虎加人參湯"] },
+  ];
+  const compareGroupOptions = [...COMPARE_GROUPS, ...EXTRA_COMPARE_GROUPS];
   const items = compareList.map(n => DATA.find(d => d.n === n)).filter(Boolean);
   const allHerbs = {};
   items.forEach(fm => fm.hd.forEach(h => { if (!allHerbs[h.n]) allHerbs[h.n] = {}; allHerbs[h.n][fm.n] = h; }));
@@ -781,6 +790,52 @@ function ComparePage({ compareList, setCompareList }) {
   const shared = herbNames.filter(h => items.every(fm => fm.hd.some(x => x.n === h)));
   const unique = {};
   items.forEach(fm => { unique[fm.n] = fm.hd.filter(h => !shared.includes(h.n)).map(h => h.n); });
+  const formatNum = (v) => {
+    const n = Math.round(v * 10) / 10;
+    return `${n}`.replace(/\.0$/, "");
+  };
+  const toNum = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const buildFlavorSummary = (base, target) => {
+    const dominantChanged = base.pf !== target.pf
+      ? `主味由${base.pf}轉為${target.pf}`
+      : `主味維持${base.pf}`;
+    const deltas = FLAVORS
+      .map((f) => ({ f, diff: toNum(target.fp[f]) - toNum(base.fp[f]) }))
+      .filter((x) => Math.abs(x.diff) >= 3)
+      .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
+      .slice(0, 2)
+      .map((x) => `${x.f}${x.diff > 0 ? "↑" : "↓"}${formatNum(Math.abs(x.diff))}%`);
+    if (deltas.length === 0) return `${dominantChanged}，五味比例接近`;
+    return `${dominantChanged}，${deltas.join("、")}`;
+  };
+  const buildDeltaSummary = (base, target) => {
+    const baseMap = Object.fromEntries(base.hd.map(h => [h.n, toNum(h.w)]));
+    const targetMap = Object.fromEntries(target.hd.map(h => [h.n, toNum(h.w)]));
+    const added = target.hd.filter(h => !(h.n in baseMap)).map(h => h.n);
+    const removed = base.hd.filter(h => !(h.n in targetMap)).map(h => h.n);
+    const adjusted = target.hd
+      .filter(h => h.n in baseMap)
+      .map(h => ({ name: h.n, diff: toNum(h.w) - baseMap[h.n] }))
+      .filter(x => Math.abs(x.diff) >= 0.5)
+      .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
+      .map(x => `${x.name}${x.diff > 0 ? "增" : "減"}${formatNum(Math.abs(x.diff))}兩`);
+    const parts = [];
+    parts.push(`五味：${buildFlavorSummary(base, target)}`);
+    if (added.length) parts.push(`增${added.slice(0, 3).join("、")}`);
+    if (removed.length) parts.push(`去${removed.slice(0, 3).join("、")}`);
+    if (adjusted.length) parts.push(`並調整${adjusted.slice(0, 3).join("、")}`);
+    if (!added.length && !removed.length && !adjusted.length) {
+      parts.push("藥味組成無明顯增減");
+    }
+    const nsDiff = target.ns - base.ns;
+    const tendency = nsDiff > 0.35 ? "寒熱傾向較溫" : nsDiff < -0.35 ? "寒熱傾向較寒" : "寒熱傾向接近";
+    parts.push(tendency);
+    return `相較${base.n}，${target.n}：${parts.join("；")}。`;
+  };
+  const comparisonSummary = items.length > 1 ? items.slice(1).map(target => buildDeltaSummary(items[0], target)) : [];
 
   return (
     <div style={{ padding:"20px 24px", maxWidth:960, margin:"0 auto" }}>
@@ -788,7 +843,7 @@ function ComparePage({ compareList, setCompareList }) {
       <div style={{ marginBottom:20 }}>
         <div style={{ fontSize:13, color:"#888", marginBottom:8 }}>預設比較組</div>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-          {COMPARE_GROUPS.map((g,i) => (
+          {compareGroupOptions.map((g,i) => (
             <button key={i} onClick={() => setCompareList(g.formulas)}
               style={{ padding:"6px 14px", borderRadius:8, border:"1px solid #ddd", background:"#fff",
                 fontSize:12, cursor:"pointer", textAlign:"left", lineHeight:1.4 }}>
@@ -823,31 +878,47 @@ function ComparePage({ compareList, setCompareList }) {
           {/* Radar overlay */}
           <div style={{ background:"#fff", borderRadius:12, padding:20, border:"1px solid #eee", marginBottom:16 }}>
             <div style={{ fontSize:12, color:"#888", marginBottom:8 }}>五味分佈疊合</div>
-            <svg viewBox="0 0 340 300" style={{ width:"100%", maxWidth:400, display:"block", margin:"0 auto" }}>
+            <svg
+              viewBox={`0 0 340 ${Math.max(320, 264 + (Math.max(1, Math.ceil(items.length / 3)) - 1) * 20 + 32)}`}
+              style={{ width:"100%", maxWidth:400, display:"block", margin:"0 auto" }}
+            >
               {(() => {
                 const cx=170,cy=140,R=100;
                 const angles = FLAVORS.map((_,i) => Math.PI/2 + 2*Math.PI*i/5);
                 const toXY = (a,r) => [cx+r*Math.cos(a), cy-r*Math.sin(a)];
-                const colors = ["#C94435","#2E86C1","#27AE60","#8E44AD"];
+                const colors = ["#C94435","#2E86C1","#27AE60","#8E44AD","#F39C12","#16A085","#7D3C98","#2C3E50"];
                 const levels = [20,40,60,80,100];
+                const legendCols = 3;
+                const legendColWidth = 108;
+                const legendStartY = 264;
+                const legendRowHeight = 20;
                 return (
                   <g>
                     {levels.map(l => <polygon key={l} points={angles.map(a => toXY(a,R*l/100).join(",")).join(" ")} fill="none" stroke="#eee" strokeWidth={0.5} />)}
                     {angles.map((a,i) => <line key={i} x1={cx} y1={cy} x2={toXY(a,R)[0]} y2={toXY(a,R)[1]} stroke="#eee" strokeWidth={0.5} />)}
                     {items.map((fm,fi) => {
                       const pts = FLAVORS.map((f,i) => toXY(angles[i], (fm.fp[f]||0)/100*R));
-                      return <polygon key={fi} points={pts.map(p=>p.join(",")).join(" ")} fill={colors[fi%4]} fillOpacity={0.12} stroke={colors[fi%4]} strokeWidth={2} />;
+                      return <polygon key={fi} points={pts.map(p=>p.join(",")).join(" ")} fill={colors[fi%8]} fillOpacity={0.12} stroke={colors[fi%8]} strokeWidth={2} />;
                     })}
                     {FLAVORS.map((f,i) => {
                       const [lx,ly] = toXY(angles[i], R+24);
                       return <text key={f} x={lx} y={ly} textAnchor="middle" fontSize={13} fontWeight={700} fill={f==="辛"?"#666":FLAVOR_COLORS[f]}>{f}</text>;
                     })}
-                    {items.map((fm,fi) => (
-                      <g key={fi}>
-                        <rect x={10} y={260+fi*16} width={10} height={10} rx={2} fill={colors[fi%4]} />
-                        <text x={24} y={269+fi*16} fontSize={11} fill="#666">{fm.n}</text>
-                      </g>
-                    ))}
+                    {items.map((fm,fi) => {
+                      const col = fi % legendCols;
+                      const row = Math.floor(fi / legendCols);
+                      const rowStartIndex = row * legendCols;
+                      const rowItemCount = Math.min(legendCols, items.length - rowStartIndex);
+                      const rowStartX = (340 - rowItemCount * legendColWidth) / 2;
+                      const x = rowStartX + col * legendColWidth;
+                      const y = legendStartY + row * legendRowHeight;
+                      return (
+                        <g key={fi}>
+                          <rect x={x} y={y} width={10} height={10} rx={2} fill={colors[fi%8]} />
+                          <text x={x + 14} y={y + 9} fontSize={11} fill="#666">{fm.n}</text>
+                        </g>
+                      );
+                    })}
                   </g>
                 );
               })()}
@@ -867,6 +938,20 @@ function ComparePage({ compareList, setCompareList }) {
               </div>
             ))}
           </div>
+
+          {/* Key summary */}
+          {comparisonSummary.length > 0 && (
+            <div style={{ background:"#fff", borderRadius:12, padding:20, border:"1px solid #eee", marginBottom:16 }}>
+              <div style={{ fontSize:12, color:"#888", marginBottom:10 }}>關鍵變化摘要（以 {items[0].n} 為基準）</div>
+              <div style={{ display:"grid", gap:8 }}>
+                {comparisonSummary.map((line, i) => (
+                  <div key={i} style={{ fontSize:13, lineHeight:1.75, color:"#555", background:"#faf8f5", border:"1px solid #efeae3", borderRadius:8, padding:"10px 12px" }}>
+                    {line}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Herb comparison table */}
           <div style={{ background:"#fff", borderRadius:12, padding:20, border:"1px solid #eee", marginBottom:16 }}>

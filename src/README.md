@@ -12,10 +12,13 @@ These files are a safe intermediate step toward an offline app architecture.
 
 - `ui/shared.jsx`
   Shared visual components and reusable display elements.
+  Exported module form (`RadarChart / FlavorBar / NatureGauge / HerbPill / FormulaCard`).
 - `features/compare.jsx`
   Compare page reference.
 - `features/quiz.jsx`
   Quiz page reference.
+- `features/index.js`
+  Feature module export entry.
 - `app-shell.jsx`
   Future top-level composition root.
 
