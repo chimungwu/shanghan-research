@@ -1,13 +1,21 @@
-const {useState, useMemo} = React;
+// 傷寒論方劑性味分析 - 主程式
+// Data loaded from separate JSON files via <script> tags
+// FORMULAS, HERBS_BT, CLAUSES are set as window globals before this script runs
 
-
-
+const { useState, useMemo } = React;
 
 const CATEGORIES = ["全部","太陽病","陽明病","少陽病","太陰病","少陰病","厥陰病","霍亂病","差後病"];
 const TENDENCIES = ["全部","大溫","偏溫","平性","偏寒","大寒"];
 const FLAVORS = ["辛","甘","苦","酸","鹹"];
 const FLAVOR_COLORS = { "辛":"#A0A0A0", "甘":"#D4A017", "苦":"#C94435", "酸":"#3A8F5C", "鹹":"#34495E" };
 const TENDENCY_COLORS = { "大溫":"#C0392B", "偏溫":"#E67E22", "平性":"#7F8C8D", "偏寒":"#3498DB", "大寒":"#2471A3" };
+
+// Merge data: attach bt and clauses to each formula
+const DATA = (window.FORMULAS || []).map(fm => {
+  const hd = fm.hd.map(h => ({ ...h, bt: (window.HERBS_BT || {})[h.n] || '' }));
+  const cl = (window.CLAUSES || {})[fm.n] || [];
+  return { ...fm, hd, cl };
+});
 
 function RadarChart({ fp, fp2, label, label2, size = 280 }) {
   const cx = size / 2, cy = size / 2;
@@ -846,6 +854,3 @@ function App() {
     </div>
   );
 }
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(React.createElement(App));
