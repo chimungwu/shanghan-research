@@ -1,21 +1,18 @@
-// 傷寒論方劑性味分析 - 主程式
-// Data loaded from separate JSON files via <script> tags
-// FORMULAS, HERBS_BT, CLAUSES are set as window globals before this script runs
-
-const { useState, useMemo } = React;
-
-const CATEGORIES = ["全部","太陽病","陽明病","少陽病","太陰病","少陰病","厥陰病","霍亂病","差後病"];
-const TENDENCIES = ["全部","大溫","偏溫","平性","偏寒","大寒"];
-const FLAVORS = ["辛","甘","苦","酸","鹹"];
+﻿
+const {useState, useMemo} = React;
+const {
+  CATEGORIES,
+  TENDENCIES,
+  FLAVORS,
+  COMPARE_GROUPS,
+  createBrowserStorageAdapter,
+  createWrongBookStore,
+  createFavoritesStore,
+  createQuizQuestion,
+  buildWrongEntry,
+} = window.AppCore;
 const FLAVOR_COLORS = { "辛":"#A0A0A0", "甘":"#D4A017", "苦":"#C94435", "酸":"#3A8F5C", "鹹":"#34495E" };
 const TENDENCY_COLORS = { "大溫":"#C0392B", "偏溫":"#E67E22", "平性":"#7F8C8D", "偏寒":"#3498DB", "大寒":"#2471A3" };
-
-// Merge data: attach bt and clauses to each formula
-const DATA = (window.FORMULAS || []).map(fm => {
-  const hd = fm.hd.map(h => ({ ...h, bt: (window.HERBS_BT || {})[h.n] || '' }));
-  const cl = (window.CLAUSES || {})[fm.n] || [];
-  return { ...fm, hd, cl };
-});
 
 function RadarChart({ fp, fp2, label, label2, size = 280 }) {
   const cx = size / 2, cy = size / 2;
@@ -163,7 +160,7 @@ function HerbPill({ herb, expanded, onToggle }) {
   );
 }
 
-function FormulaCard({ formula, onClick, selected }) {
+function FormulaCard({ formula, onClick, selected, isFav, onToggleFav }) {
   return (
     <div onClick={onClick} style={{
       padding:"14px 16px", cursor:"pointer", borderBottom:"1px solid #eee",
@@ -173,10 +170,15 @@ function FormulaCard({ formula, onClick, selected }) {
     }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
         <span style={{ fontWeight:700, fontSize:15, fontFamily:"'Noto Serif TC', serif" }}>{formula.n}</span>
-        <span style={{
-          fontSize:11, padding:"2px 8px", borderRadius:10, fontWeight:600,
-          color: TENDENCY_COLORS[formula.nt], background: `${TENDENCY_COLORS[formula.nt]}18`
-        }}>{formula.nt}</span>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <span style={{
+            fontSize:11, padding:"2px 8px", borderRadius:10, fontWeight:600,
+            color: TENDENCY_COLORS[formula.nt], background: `${TENDENCY_COLORS[formula.nt]}18`
+          }}>{formula.nt}</span>
+          <span onClick={e => { e.stopPropagation(); onToggleFav && onToggleFav(formula.n); }}
+            style={{ fontSize:16, cursor:"pointer", color: isFav ? "#D4A017" : "#ddd", transition:"color 0.2s" }}
+            title={isFav ? "取消收藏" : "收藏"}>{isFav ? "★" : "☆"}</span>
+        </div>
       </div>
       <div style={{ fontSize:11, color:"#888", marginBottom:6 }}>{formula.c}</div>
       <FlavorBar fp={formula.fp} height={18} />
@@ -609,7 +611,7 @@ function ClauseItem({ cl, isLast }) {
   );
 }
 
-function DetailPanel({ selected, compare, setCompare, onClose }) {
+function DetailPanel({ selected, compare, setCompare, isFav, onToggleFav, onAddCompare, onClose }) {
   const [expandedHerb, setExpandedHerb] = useState(null);
   return (
     <div style={{
@@ -624,6 +626,18 @@ function DetailPanel({ selected, compare, setCompare, onClose }) {
         <button onClick={onClose} style={{
           background:"none", border:"none", fontSize:20, cursor:"pointer", color:"#aaa", padding:4
         }}>✕</button>
+      </div>
+
+      {/* Action buttons */}
+      <div style={{ display:"flex", gap:8, marginBottom:16 }}>
+        <button onClick={() => onToggleFav && onToggleFav(selected.n)} style={{
+          padding:"6px 14px", borderRadius:6, border:"1px solid #ddd", cursor:"pointer", fontSize:12, fontWeight:600,
+          background: isFav ? "#D4A017" : "#fff", color: isFav ? "#fff" : "#888"
+        }}>{isFav ? "★ 已收藏" : "☆ 收藏"}</button>
+        <button onClick={onAddCompare} style={{
+          padding:"6px 14px", borderRadius:6, border:"1px solid #ddd", cursor:"pointer", fontSize:12, fontWeight:600,
+          background:"#fff", color:"#555"
+        }}>+ 加入比較</button>
       </div>
 
       {/* Nature score */}
@@ -718,26 +732,478 @@ function DetailPanel({ selected, compare, setCompare, onClose }) {
   );
 }
 
+function ComparePage({ compareList, setCompareList }) {
+  const items = compareList.map(n => DATA.find(d => d.n === n)).filter(Boolean);
+  const allHerbs = {};
+  items.forEach(fm => fm.hd.forEach(h => { if (!allHerbs[h.n]) allHerbs[h.n] = {}; allHerbs[h.n][fm.n] = h; }));
+  const herbNames = Object.keys(allHerbs);
+  const shared = herbNames.filter(h => items.every(fm => fm.hd.some(x => x.n === h)));
+  const unique = {};
+  items.forEach(fm => { unique[fm.n] = fm.hd.filter(h => !shared.includes(h.n)).map(h => h.n); });
+
+  return (
+    <div style={{ padding:"20px 24px", maxWidth:960, margin:"0 auto" }}>
+      {/* Preset groups */}
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontSize:13, color:"#888", marginBottom:8 }}>預設比較組</div>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          {COMPARE_GROUPS.map((g,i) => (
+            <button key={i} onClick={() => setCompareList(g.formulas)}
+              style={{ padding:"6px 14px", borderRadius:8, border:"1px solid #ddd", background:"#fff",
+                fontSize:12, cursor:"pointer", textAlign:"left", lineHeight:1.4 }}>
+              <span style={{ fontWeight:600 }}>{g.title}</span>
+              <br/><span style={{ color:"#999", fontSize:10 }}>{g.formulas.length}方</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {items.length === 0 ? (
+        <div style={{ background:"#fff", borderRadius:12, padding:40, border:"1px solid #eee", textAlign:"center", color:"#aaa" }}>
+          <p style={{ fontSize:16, marginBottom:12 }}>選擇要比較的方劑</p>
+          <p style={{ fontSize:13 }}>從上方預設組選取，或在「方劑分析」頁點擊方劑詳情中的「加入比較」按鈕</p>
+        </div>
+      ) : (
+        <div>
+          {/* Selected pills */}
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:16 }}>
+            {items.map(fm => (
+              <span key={fm.n} style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"4px 12px",
+                borderRadius:20, background:"#2c3e50", color:"#fff", fontSize:13, fontWeight:600 }}>
+                {fm.n}
+                <span onClick={() => setCompareList(compareList.filter(n => n !== fm.n))}
+                  style={{ cursor:"pointer", opacity:0.6, fontSize:11 }}>✕</span>
+              </span>
+            ))}
+            <button onClick={() => setCompareList([])} style={{ padding:"4px 12px", borderRadius:20,
+              border:"1px solid #ddd", background:"#fff", fontSize:12, cursor:"pointer", color:"#888" }}>清空</button>
+          </div>
+
+          {/* Radar overlay */}
+          <div style={{ background:"#fff", borderRadius:12, padding:20, border:"1px solid #eee", marginBottom:16 }}>
+            <div style={{ fontSize:12, color:"#888", marginBottom:8 }}>五味分佈疊合</div>
+            <svg viewBox="0 0 340 300" style={{ width:"100%", maxWidth:400, display:"block", margin:"0 auto" }}>
+              {(() => {
+                const cx=170,cy=140,R=100;
+                const angles = FLAVORS.map((_,i) => Math.PI/2 + 2*Math.PI*i/5);
+                const toXY = (a,r) => [cx+r*Math.cos(a), cy-r*Math.sin(a)];
+                const colors = ["#C94435","#2E86C1","#27AE60","#8E44AD"];
+                const levels = [20,40,60,80,100];
+                return (
+                  <g>
+                    {levels.map(l => <polygon key={l} points={angles.map(a => toXY(a,R*l/100).join(",")).join(" ")} fill="none" stroke="#eee" strokeWidth={0.5} />)}
+                    {angles.map((a,i) => <line key={i} x1={cx} y1={cy} x2={toXY(a,R)[0]} y2={toXY(a,R)[1]} stroke="#eee" strokeWidth={0.5} />)}
+                    {items.map((fm,fi) => {
+                      const pts = FLAVORS.map((f,i) => toXY(angles[i], (fm.fp[f]||0)/100*R));
+                      return <polygon key={fi} points={pts.map(p=>p.join(",")).join(" ")} fill={colors[fi%4]} fillOpacity={0.12} stroke={colors[fi%4]} strokeWidth={2} />;
+                    })}
+                    {FLAVORS.map((f,i) => {
+                      const [lx,ly] = toXY(angles[i], R+24);
+                      return <text key={f} x={lx} y={ly} textAnchor="middle" fontSize={13} fontWeight={700} fill={f==="辛"?"#666":FLAVOR_COLORS[f]}>{f}</text>;
+                    })}
+                    {items.map((fm,fi) => (
+                      <g key={fi}>
+                        <rect x={10} y={260+fi*16} width={10} height={10} rx={2} fill={colors[fi%4]} />
+                        <text x={24} y={269+fi*16} fontSize={11} fill="#666">{fm.n}</text>
+                      </g>
+                    ))}
+                  </g>
+                );
+              })()}
+            </svg>
+          </div>
+
+          {/* Nature index comparison */}
+          <div style={{ background:"#fff", borderRadius:12, padding:20, border:"1px solid #eee", marginBottom:16 }}>
+            <div style={{ fontSize:12, color:"#888", marginBottom:12 }}>寒熱指數對比</div>
+            {items.map(fm => (
+              <div key={fm.n} style={{ marginBottom:12 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:4 }}>
+                  <span style={{ fontWeight:600 }}>{fm.n}</span>
+                  <span style={{ color: TENDENCY_COLORS[fm.nt], fontWeight:700 }}>{fm.ns > 0 ? "+" : ""}{fm.ns} ({fm.nt})</span>
+                </div>
+                <NatureGauge score={fm.ns} />
+              </div>
+            ))}
+          </div>
+
+          {/* Herb comparison table */}
+          <div style={{ background:"#fff", borderRadius:12, padding:20, border:"1px solid #eee", marginBottom:16 }}>
+            <div style={{ fontSize:12, color:"#888", marginBottom:12 }}>藥物組成比較</div>
+            {shared.length > 0 && (
+              <div style={{ marginBottom:12 }}>
+                <div style={{ fontSize:11, color:"#3A8F5C", fontWeight:600, marginBottom:6 }}>共同藥物（{shared.length}味）</div>
+                <table style={{ width:"100%", fontSize:12, borderCollapse:"collapse" }}>
+                  <thead><tr style={{ borderBottom:"2px solid #eee" }}>
+                    <th style={{ textAlign:"left", padding:"6px 8px", color:"#888" }}>藥物</th>
+                    {items.map(fm => <th key={fm.n} style={{ textAlign:"center", padding:"6px 8px", color:"#888" }}>{fm.n}</th>)}
+                  </tr></thead>
+                  <tbody>{shared.map(h => (
+                    <tr key={h} style={{ borderBottom:"1px solid #f5f5f5" }}>
+                      <td style={{ padding:"6px 8px", fontWeight:600 }}>{h}</td>
+                      {items.map(fm => {
+                        const herb = fm.hd.find(x => x.n === h);
+                        return <td key={fm.n} style={{ textAlign:"center", padding:"6px 8px" }}>{herb ? herb.w + "兩" : "-"}</td>;
+                      })}
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
+            {items.map(fm => unique[fm.n].length > 0 && (
+              <div key={fm.n} style={{ marginBottom:8 }}>
+                <div style={{ fontSize:11, color:"#C94435", fontWeight:600, marginBottom:4 }}>{fm.n} 獨有（{unique[fm.n].length}味）</div>
+                <div style={{ fontSize:12, color:"#666" }}>{unique[fm.n].map(h => { const herb = fm.hd.find(x=>x.n===h); return herb ? `${h}(${herb.w}兩)` : h; }).join("、")}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function QuizPage({ favs }) {
+  const browserStorage = createBrowserStorageAdapter(window.localStorage);
+  const wrongBookStore = createWrongBookStore(browserStorage);
+  const [mode, setMode] = useState(null);
+  const [scope, setScope] = useState("all");
+  const [q, setQ] = useState(null);
+  const [chosen, setChosen] = useState(null);
+  const [score, setScore] = useState({ total:0, correct:0 });
+  const [history, setHistory] = useState([]);
+  const [questionCount, setQuestionCount] = useState(10);
+  const [quizStarted, setQuizStarted] = useState(false);
+  const [quizFinished, setQuizFinished] = useState(false);
+  const [reviewWrongOnly, setReviewWrongOnly] = useState(false);
+  const [reviewTotal, setReviewTotal] = useState(0);
+  const [wrongBook, setWrongBook] = useState(() => wrongBookStore.load());
+
+  const pool = useMemo(() => {
+    if (scope === "fav") return DATA.filter(d => favs.includes(d.n));
+    if (scope !== "all") return DATA.filter(d => d.c === scope);
+    return DATA;
+  }, [scope, favs]);
+
+  const saveWrongBook = (next) => {
+    setWrongBook(next);
+    try { wrongBookStore.save(next); } catch(e) {}
+  };
+  const resetQuizState = () => {
+    setQ(null);
+    setChosen(null);
+    setScore({total:0,correct:0});
+    setHistory([]);
+    setQuizStarted(false);
+    setQuizFinished(false);
+    setReviewTotal(0);
+  };
+  const reviewPool = useMemo(() => {
+    if (!reviewWrongOnly) return [];
+    return wrongBook;
+  }, [reviewWrongOnly, wrongBook]);
+
+  const genQuestion = () => {
+    if (quizFinished || score.total >= questionCount) {
+      setQuizFinished(true);
+      setQ(null);
+      return;
+    }
+    if (reviewWrongOnly) {
+      if (reviewPool.length === 0) {
+        if (!quizStarted) alert("目前沒有錯題可複習");
+        else setQuizFinished(true);
+        setQ(null);
+        return;
+      }
+      setQuizStarted(true);
+      if (!quizStarted) setReviewTotal(reviewPool.length);
+      setChosen(null);
+      const reviewQ = reviewPool[Math.floor(Math.random() * reviewPool.length)];
+      setQ({ ...reviewQ, review: true });
+      return;
+    }
+    if (pool.length < 4) { alert("方劑數量不足，請擴大範圍"); return; }
+    setQuizStarted(true);
+    setChosen(null);
+    const nextQuestion = createQuizQuestion({ data: DATA, mode, scope, favorites: favs });
+    if (nextQuestion.error) { alert(nextQuestion.error); return; }
+    setQ(nextQuestion);
+  };
+
+  const handleAnswer = (idx) => {
+    if (chosen !== null) return;
+    setChosen(idx);
+    const isCorrect = idx === q.answer;
+    const wrongEntry = buildWrongEntry(q);
+    setScore(s => {
+      const next = { total: s.total + 1, correct: s.correct + (isCorrect ? 1 : 0) };
+      if (next.total >= questionCount) setQuizFinished(true);
+      return next;
+    });
+    setHistory(h => [...h, { q: q.question.slice(0, 30), correct: isCorrect, formula: q.formulaName }]);
+    if (isCorrect) {
+      if (q.review) saveWrongBook(wrongBook.filter(item => item.key !== q.key));
+    } else {
+      if (!wrongBook.some(item => item.key === wrongEntry.key)) {
+        saveWrongBook([...wrongBook, wrongEntry]);
+      }
+    }
+  };
+
+  if (!mode && !reviewWrongOnly) return (
+    <div style={{ padding:"20px 24px", maxWidth:700, margin:"0 auto" }}>
+      <div style={{ fontSize:13, color:"#888", marginBottom:12 }}>選擇題型</div>
+      <div style={{ position:"relative", marginBottom:20 }}>
+      <div style={{
+        display:"grid", gridTemplateColumns:"1fr 1fr", gap:12,
+        opacity: reviewWrongOnly ? 0.45 : 1,
+        pointerEvents: reviewWrongOnly ? "none" : "auto",
+        filter: reviewWrongOnly ? "grayscale(0.2)" : "none",
+      }}>
+        {[
+          ["random","隨機題型","每題隨機抽一種測驗方式","綜合"],
+          ["f2h","方→藥","看方名，選出正確的藥物組成","基礎"],
+          ["h2f","藥→方","看藥物組成，辨認方名","基礎"],
+          ["clause","條文→方","讀條文，判斷用什麼方","進階"],
+        ].map(([k,title,desc,level]) => (
+          <div key={k} onClick={() => setMode(k)} style={{
+            background:"#fff", borderRadius:12, padding:20, border:"1px solid #eee", cursor:"pointer",
+            transition:"all 0.15s", ":hover":{ borderColor:"#C94435" }
+          }}>
+            <div style={{ fontSize:16, fontWeight:700, marginBottom:4 }}>{title}</div>
+            <div style={{ fontSize:12, color:"#888", marginBottom:8 }}>{desc}</div>
+            <span style={{ fontSize:10, padding:"2px 8px", borderRadius:10, background:"#f5f3f0", color:"#888" }}>{level}</span>
+          </div>
+        ))}
+      </div>
+      {wrongBook.length > 0 && !reviewWrongOnly && (
+        <div style={{ marginTop:12 }}>
+          <div
+            onClick={() => { resetQuizState(); setReviewWrongOnly(true); setMode("review"); }}
+            style={{
+              background:"#fff", borderRadius:12, padding:20, border:"1px solid #eee", cursor:"pointer",
+              transition:"all 0.15s"
+            }}
+          >
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
+              <div>
+                <div style={{ fontSize:16, fontWeight:700, marginBottom:4 }}>複習錯題</div>
+                <div style={{ fontSize:12, color:"#888" }}>依原題型重新練習先前答錯的題目</div>
+              </div>
+              <span style={{
+                fontSize:11, padding:"4px 10px", borderRadius:999, background:"#f5f3f0", color:"#666", fontWeight:600
+              }}>{wrongBook.length} 題</span>
+            </div>
+          </div>
+        </div>
+      )}
+      {reviewWrongOnly && (
+        <div style={{
+          position:"absolute", right:0, top:-28, fontSize:12, color:"#888",
+          background:"#F7F5F2", padding:"2px 8px", borderRadius:12, border:"1px solid #e5e0d8"
+        }}>
+          錯題複習會依原題型出題
+        </div>
+      )}
+      </div>
+      <div style={{ fontSize:13, color:"#888", marginBottom:8 }}>範圍設定</div>
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+        {[["all","全部"],["fav","僅收藏"],...CATEGORIES.slice(1).map(c=>[c,c])].map(([k,label]) => (
+          <button key={k} onClick={() => setScope(k)} style={{
+            padding:"4px 12px", borderRadius:16, border:"1px solid #ddd", cursor:"pointer", fontSize:12,
+            background: scope===k ? "#2c3e50" : "#fff", color: scope===k ? "#fff" : "#555"
+          }}>{label}</button>
+        ))}
+      </div>
+      <div style={{ fontSize:13, color:"#888", margin:"16px 0 8px" }}>題數設定</div>
+      <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
+        {[5,10,20,30].map(n => (
+          <button key={n} onClick={() => setQuestionCount(n)} style={{
+            padding:"4px 12px", borderRadius:16, border:"1px solid #ddd", cursor:"pointer", fontSize:12,
+            background: questionCount===n ? "#2c3e50" : "#fff", color: questionCount===n ? "#fff" : "#555"
+          }}>{n} 題</button>
+        ))}
+        <label style={{ fontSize:12, color:"#666", display:"flex", alignItems:"center", gap:6 }}>
+          自訂
+          <input
+            type="number"
+            min="1"
+            max="100"
+            value={questionCount}
+            onChange={e => {
+              const next = Number(e.target.value);
+              if (!Number.isFinite(next)) return;
+              setQuestionCount(Math.max(1, Math.min(100, next)));
+            }}
+            style={{ width:72, padding:"4px 8px", borderRadius:8, border:"1px solid #ddd", fontSize:12 }}
+          />
+          題
+        </label>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ padding:"20px 24px", maxWidth:700, margin:"0 auto" }}>
+      {/* Header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+        <button onClick={() => { setMode(null); setReviewWrongOnly(false); resetQuizState(); }}
+          style={{ background:"none", border:"none", cursor:"pointer", fontSize:14, color:"#888" }}>← 返回選題</button>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          {reviewWrongOnly && wrongBook.length > 0 && (
+            <button
+              onClick={() => {
+                if (confirm("確定要清空全部錯題嗎？")) {
+                  saveWrongBook([]);
+                  setMode(null);
+                  setReviewWrongOnly(false);
+                  resetQuizState();
+                }
+              }}
+              style={{
+                padding:"6px 12px", borderRadius:16, border:"1px solid #e2b8b8", cursor:"pointer",
+                fontSize:12, background:"#fff", color:"#C62828"
+              }}
+            >清空錯題本</button>
+          )}
+          <div style={{ fontSize:13, color:"#888" }}>
+            {score.total > 0 && <span>{score.correct}/{score.total} 正確率 {Math.round(score.correct/score.total*100)}%</span>}
+          </div>
+        </div>
+      </div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, fontSize:13, color:"#777", flexWrap:"wrap", gap:8 }}>
+        <span>{reviewWrongOnly ? `錯題複習，本輪共 ${reviewTotal || reviewPool.length} 題` : `本次設定 ${questionCount} 題`}</span>
+        <span>進度 {Math.min(score.total + (q && chosen === null ? 1 : 0), reviewWrongOnly ? (reviewTotal || reviewPool.length || questionCount) : questionCount)} / {reviewWrongOnly ? (reviewTotal || reviewPool.length || questionCount) : questionCount}</span>
+      </div>
+
+      {!quizStarted ? (
+        <div style={{ textAlign:"center", padding:40 }}>
+          <button onClick={genQuestion} style={{
+            padding:"14px 40px", borderRadius:12, border:"none", cursor:"pointer",
+            background:"linear-gradient(135deg, #1a1a2e, #0f3460)", color:"#fff",
+            fontSize:16, fontWeight:700, letterSpacing:2
+          }}>{reviewWrongOnly ? "開始複習" : "開始測驗"}</button>
+        </div>
+      ) : quizFinished ? (
+        <div style={{ background:"#fff", borderRadius:12, padding:28, border:"1px solid #eee", textAlign:"center", marginBottom:16 }}>
+          <div style={{ fontSize:22, fontWeight:700, marginBottom:10 }}>測驗完成</div>
+          <div style={{ fontSize:15, color:"#555", marginBottom:8 }}>共 {questionCount} 題，答對 {score.correct} 題</div>
+          <div style={{ fontSize:14, color:"#888", marginBottom:18 }}>正確率 {questionCount > 0 ? Math.round(score.correct / questionCount * 100) : 0}%</div>
+          <button onClick={resetQuizState}
+            style={{
+              padding:"10px 24px", borderRadius:8, border:"none", cursor:"pointer",
+              background:"#2c3e50", color:"#fff", fontSize:14, fontWeight:600
+            }}>重新測驗</button>
+        </div>
+      ) : (
+        <div>
+          {/* Question */}
+          <div style={{ background:"#fff", borderRadius:12, padding:24, border:"1px solid #eee", marginBottom:16 }}>
+            <div style={{ fontSize:15, lineHeight:1.8, whiteSpace:"pre-wrap" }}>{q.question}</div>
+          </div>
+
+          {/* Options */}
+          <div style={{ display:"grid", gap:10, marginBottom:16 }}>
+            {q.options.map((opt, i) => {
+              const isAnswer = i === q.answer;
+              const isChosen = i === chosen;
+              let bg = "#fff", border = "1px solid #eee", color = "#333";
+              if (chosen !== null) {
+                if (isAnswer) { bg = "#E8F5E9"; border = "2px solid #4CAF50"; color = "#2E7D32"; }
+                else if (isChosen) { bg = "#FFEBEE"; border = "2px solid #E53935"; color = "#C62828"; }
+              }
+              return (
+                <div key={i} onClick={() => handleAnswer(i)} style={{
+                  padding:"14px 18px", borderRadius:10, background: bg, border,
+                  cursor: chosen === null ? "pointer" : "default", fontSize:14, lineHeight:1.6, color,
+                  transition:"all 0.15s"
+                }}>
+                  <span style={{ fontWeight:600, marginRight:8, color:"#aaa" }}>{String.fromCharCode(65+i)}.</span>
+                  {opt}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Feedback */}
+          {chosen !== null && (
+            <div style={{ textAlign:"center", marginBottom:16 }}>
+              <div style={{ fontSize:20, marginBottom:12 }}>
+                {chosen === q.answer ? "✓ 正確！" : `✗ 答案是 ${String.fromCharCode(65+q.answer)}`}
+              </div>
+              {!reviewWrongOnly && chosen !== q.answer && (
+                <div style={{ fontSize:12, color:"#C62828", marginBottom:12 }}>
+                  這題已加入錯題本，可在「複習錯題」中重做
+                </div>
+              )}
+              {reviewWrongOnly && chosen === q.answer && (
+                <div style={{ fontSize:12, color:"#2E7D32", marginBottom:12 }}>
+                  這題已從錯題本移除
+                </div>
+              )}
+              <button onClick={genQuestion} style={{
+                padding:"10px 30px", borderRadius:8, border:"none", cursor:"pointer",
+                background:"#2c3e50", color:"#fff", fontSize:14, fontWeight:600
+              }}>{score.total >= questionCount ? "查看結果" : "下一題"}</button>
+            </div>
+          )}
+
+          {/* History */}
+          {history.length > 0 && (
+            <div style={{ background:"#fff", borderRadius:12, padding:16, border:"1px solid #eee", marginTop:16 }}>
+              <div style={{ fontSize:12, color:"#888", marginBottom:8 }}>作答紀錄</div>
+              {history.slice(-10).reverse().map((h,i) => (
+                <div key={i} style={{ fontSize:12, padding:"4px 0", color: h.correct ? "#4CAF50" : "#E53935" }}>
+                  {h.correct ? "✓" : "✗"} {h.formula} — {h.q}...
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function App() {
+  const browserStorage = createBrowserStorageAdapter(window.localStorage);
+  const favoritesStore = createFavoritesStore(browserStorage);
   const [cat, setCat] = useState("全部");
   const [tend, setTend] = useState("全部");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [compare, setCompare] = useState(null);
-  const [view, setView] = useState("list"); // list | scatter
-  const [page, setPage] = useState("analysis"); // analysis | about | author
+  const [view, setView] = useState("list");
+  const [page, setPage] = useState("analysis");
+  const [favs, setFavs] = useState(() => favoritesStore.load());
+  const [compareList, setCompareList] = useState([]);
+  const [showFavOnly, setShowFavOnly] = useState(false);
+
+  const toggleFav = (name) => {
+    setFavs(prev => {
+      const next = prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name];
+      try { favoritesStore.save(next); } catch(e) {}
+      return next;
+    });
+  };
+
+  const addToCompare = (name) => {
+    setCompareList(prev => prev.includes(name) ? prev : [...prev, name].slice(0, 4));
+  };
 
   const filtered = useMemo(() => {
     return DATA.filter(d => {
       if (cat !== "全部" && d.c !== cat) return false;
       if (tend !== "全部" && d.nt !== tend) return false;
+      if (showFavOnly && !favs.includes(d.n)) return false;
       if (search) {
         const q = search.toLowerCase();
         if (!d.n.includes(q) && !d.hd.some(h => h.n.includes(q))) return false;
       }
       return true;
     });
-  }, [cat, tend, search]);
+  }, [cat, tend, search, showFavOnly, favs]);
 
   return (
     <div style={{ fontFamily:"'Noto Sans TC', 'Hiragino Sans', sans-serif", background:"#F7F5F2", minHeight:"100vh" }}>
@@ -749,8 +1215,8 @@ function App() {
         <p style={{ margin:"8px 0 0", fontSize:13, opacity:0.65, lineHeight:1.8 }}>
           以《神農本草經》五味四氣數據為基礎，結合藥物用量加權計算，對趙開美翻刻宋本《傷寒論》{DATA.length} 首方劑進行性味結構量化分析。每首方劑附有組成原文、煎服法、宋桂康三版本條文異文比較，以及各藥物之《神農本草經》原文對照。
         </p>
-        <div style={{ display:"flex", gap:4, marginTop:16 }}>
-          {[["analysis","方劑分析"],["about","研究說明"],["author","關於作者"]].map(([k,label]) => (
+        <div style={{ display:"flex", gap:4, marginTop:16, flexWrap:"wrap" }}>
+          {[["analysis","方劑分析"],["compare","方劑比較"],["quiz","方劑測驗"],["about","研究說明"],["author","關於作者"]].map(([k,label]) => (
             <button key={k} onClick={() => setPage(k)} style={{
               padding:"8px 20px", borderRadius:"8px 8px 0 0", border:"none", cursor:"pointer",
               fontSize:14, fontWeight:600, letterSpacing:1,
@@ -762,7 +1228,7 @@ function App() {
         </div>
       </div>
 
-      {page === "about" ? <AboutPage /> : page === "author" ? <AuthorPage /> : (
+      {page === "about" ? <AboutPage /> : page === "author" ? <AuthorPage /> : page === "compare" ? <ComparePage compareList={compareList} setCompareList={setCompareList} /> : page === "quiz" ? <QuizPage favs={favs} /> : (
       <div style={{ padding:"20px 24px", maxWidth:960, margin:"0 auto" }}>
         <OverviewStats data={filtered} />
 
@@ -771,6 +1237,10 @@ function App() {
           <div style={{ display:"flex", gap:12, flexWrap:"wrap", alignItems:"center", marginBottom:12 }}>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋方劑或藥物..."
               style={{ flex:1, minWidth:180, padding:"8px 14px", borderRadius:8, border:"1px solid #ddd", fontSize:14, outline:"none" }} />
+            <button onClick={() => setShowFavOnly(!showFavOnly)} style={{
+              padding:"6px 14px", borderRadius:6, border:"1px solid #ddd", cursor:"pointer",
+              background: showFavOnly ? "#D4A017" : "#fff", color: showFavOnly ? "#fff" : "#888", fontSize:13, fontWeight:600
+            }}>{showFavOnly ? `★ ${favs.length}` : "★ 收藏"}</button>
             <div style={{ display:"flex", gap:4 }}>
               <button onClick={() => setView("list")} style={{
                 padding:"6px 14px", borderRadius:6, border:"1px solid #ddd", cursor:"pointer",
@@ -832,6 +1302,7 @@ function App() {
           }}>
             {filtered.map(f => (
               <FormulaCard key={f.n} formula={f} selected={selected && selected.n === f.n}
+                isFav={favs.includes(f.n)} onToggleFav={toggleFav}
                 onClick={() => setSelected(selected && selected.n === f.n ? null : f)} />
             ))}
             {filtered.length === 0 && (
@@ -841,7 +1312,10 @@ function App() {
 
           {/* Detail Panel */}
           {selected && (
-            <DetailPanel selected={selected} compare={compare} setCompare={setCompare} onClose={() => setSelected(null)} />
+            <DetailPanel selected={selected} compare={compare} setCompare={setCompare}
+              isFav={favs.includes(selected.n)} onToggleFav={toggleFav}
+              onAddCompare={() => { addToCompare(selected.n); }}
+              onClose={() => setSelected(null)} />
           )}
         </div>
 
@@ -854,3 +1328,7 @@ function App() {
     </div>
   );
 }
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(App));
+

@@ -6,26 +6,36 @@
 
 ```
 shanghan-app/
-├── index.html          # 主頁面（載入外部 app.jsx）
-├── standalone.html     # 獨立版（單檔部署用）
-├── app.jsx             # React 主程式（所有 UI 組件）
+├── index.html          # 主頁面（可直接開啟，載入 data.js + app.js）
+├── app.jsx             # React 原始碼（供後續重構 / App 化）
+├── data.js             # 瀏覽器版資料入口（供網站直接載入）
+├── app.js              # 瀏覽器實際執行的編譯版
+├── core.browser.js     # 瀏覽器可直接使用的核心邏輯入口
 ├── data/
 │   ├── formulas.json   # 112 首方劑基本資料（性味分析、用量、組成原文）
 │   ├── herbs.json      # 86 味藥物的《神農本草經》原文與按語
+│   ├── compare-groups.json # 預設比較組
 │   └── clauses.json    # 273 條方劑相關條文（含宋桂康三版本異文）
+├── src/
+│   └── core/           # 未來離線 App 可共用的核心模組
+├── APP_MIGRATION.md    # App 化遷移說明
 ├── README.md
 └── LICENSE
 ```
 
 ## 部署方式
 
-### GitHub Pages（推薦）
+### 本地使用 / 靜態部署
 
-使用 `standalone.html`，重新命名為 `index.html` 後上傳即可。所有資料內嵌於單一檔案中。
+目前網站採用「頁面殼 + 資料層 + 編譯後主程式」結構：
 
-### 本地開發 / 進階部署
+- `index.html`：可直接用瀏覽器開啟
+- `data.js`：提供網站直接使用的資料
+- `core.browser.js`：把共用核心邏輯掛到 `window.AppCore`
+- `app.js`：瀏覽器執行版本
+- `app.jsx`：保留作為後續重構與 App 化的原始碼
 
-使用 `index.html` + `app.jsx` + `data/` 的組合。需要 HTTP 伺服器（Babel 的 `src` 載入需要 HTTP）：
+若要用本地伺服器開啟，也可以：
 
 ```bash
 # Python
@@ -37,7 +47,7 @@ npx serve .
 
 ### iOS App 開發
 
-資料層已分離為獨立 JSON 檔案，可直接作為 Swift/React Native 的資料來源：
+資料層已分離為獨立 JSON 檔案，可直接作為 SwiftUI / React Native 的資料來源：
 
 - `data/formulas.json` → 方劑列表、性味分析結果
 - `data/herbs.json` → 藥物本草經原文（key: 藥名, value: 原文+按語）
