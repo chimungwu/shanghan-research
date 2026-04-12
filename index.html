@@ -551,6 +551,22 @@ function AuthorPage() {
         <p>中醫的學問博大精深，任何量化分析都有其局限。數據可以輔助思考，但無法取代臨床經驗與對經典的深入體悟。希望這個小小的工具，能成為大家學習路上的一個起點，而非終點。</p>
       </Section>
 
+      <Section title="使用聲明">
+        <p>本工具供學習研究，不作醫療診斷或處方依據。</p>
+      </Section>
+
+      <Section title="版本資訊">
+        <DefTable
+          headers={["項目", "內容"]}
+          rows={[
+            ["資料版號", "宋本112方-2026.04"],
+            ["最後更新日", "2026-04-12"],
+            ["方劑數", `${DATA.length} 首`],
+            ["底本版本", "趙開美翻刻宋本《傷寒論》（明萬曆二十七年刊本）"],
+          ]}
+        />
+      </Section>
+
       {/* CC License */}
       <Section title="授權條款">
         <div style={{ display:"flex", gap:16, alignItems:"flex-start", flexWrap:"wrap" }}>
