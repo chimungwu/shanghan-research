@@ -1,0 +1,50 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="160" y1="120" x2="900" y2="920" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FAF5EA"/>
+      <stop offset="1" stop-color="#EFE4CF"/>
+    </linearGradient>
+    <filter id="softShadow" x="110" y="110" width="804" height="804" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#1F4D3A" flood-opacity="0.14"/>
+    </filter>
+  </defs>
+
+  <rect x="40" y="40" width="944" height="944" rx="210" fill="url(#bg)"/>
+  <rect x="40" y="40" width="944" height="944" rx="210" stroke="#D7C9AF" stroke-width="8"/>
+
+  <g filter="url(#softShadow)">
+    <circle cx="512" cy="512" r="278" stroke="#1F4D3A" stroke-width="26" fill="none"/>
+    <circle cx="512" cy="512" r="238" stroke="#1F4D3A" stroke-opacity="0.24" stroke-width="6" fill="none"/>
+  </g>
+
+  <!-- Five-flavor compass points -->
+  <g>
+    <circle cx="512" cy="234" r="28" fill="#2F4858"/>
+    <circle cx="776.41" cy="426.09" r="28" fill="#C79A3B"/>
+    <circle cx="675.42" cy="736.91" r="28" fill="#6A8F4E"/>
+    <circle cx="348.58" cy="736.91" r="28" fill="#B8422E"/>
+    <circle cx="247.59" cy="426.09" r="28" fill="#1F4D3A"/>
+  </g>
+
+  <!-- Compass spokes -->
+  <g stroke="#1F4D3A" stroke-opacity="0.28" stroke-width="8">
+    <line x1="512" y1="512" x2="512" y2="234"/>
+    <line x1="512" y1="512" x2="776.41" y2="426.09"/>
+    <line x1="512" y1="512" x2="675.42" y2="736.91"/>
+    <line x1="512" y1="512" x2="348.58" y2="736.91"/>
+    <line x1="512" y1="512" x2="247.59" y2="426.09"/>
+  </g>
+
+  <!-- Geometric "方" -->
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path d="M368 390H656" stroke="#1F4D3A" stroke-width="34"/>
+    <path d="M512 390V602" stroke="#1F4D3A" stroke-width="34"/>
+    <path d="M414 602H610" stroke="#1F4D3A" stroke-width="34"/>
+    <path d="M414 602L356 704" stroke="#B8422E" stroke-width="34"/>
+    <path d="M610 602L668 704" stroke="#B8422E" stroke-width="34"/>
+    <path d="M448 704H576" stroke="#C79A3B" stroke-width="30"/>
+  </g>
+
+  <!-- subtle center disc -->
+  <circle cx="512" cy="512" r="154" fill="#FAF5EA" fill-opacity="0.72" stroke="#D7C9AF" stroke-width="4"/>
+</svg>

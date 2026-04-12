@@ -1,0 +1,54 @@
+<svg width="1400" height="420" viewBox="0 0 1400 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgA3" x1="20" y1="20" x2="1380" y2="400" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FAF5EA"/>
+      <stop offset="1" stop-color="#EFE4CF"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="8" y="8" width="1384" height="404" rx="42" fill="url(#bgA3)" stroke="#D7C9AF" stroke-width="6"/>
+
+  <!-- Symbol block -->
+  <g transform="translate(52 32)">
+    <rect x="0" y="0" width="356" height="356" rx="76" fill="#F7F0E1" stroke="#D7C9AF" stroke-width="4"/>
+    <circle cx="178" cy="178" r="108" stroke="#1F4D3A" stroke-width="12" fill="none"/>
+    <circle cx="178" cy="178" r="92" stroke="#1F4D3A" stroke-opacity="0.24" stroke-width="3" fill="none"/>
+
+    <g stroke="#1F4D3A" stroke-opacity="0.3" stroke-width="3.6">
+      <line x1="178" y1="178" x2="178" y2="70"/>
+      <line x1="178" y1="178" x2="280.74" y2="144.62"/>
+      <line x1="178" y1="178" x2="241.49" y2="265.38"/>
+      <line x1="178" y1="178" x2="114.51" y2="265.38"/>
+      <line x1="178" y1="178" x2="75.26" y2="144.62"/>
+    </g>
+
+    <circle cx="178" cy="70" r="11" fill="#2F4858"/>
+    <circle cx="280.74" cy="144.62" r="11" fill="#C79A3B"/>
+    <circle cx="241.49" cy="265.38" r="11" fill="#6A8F4E"/>
+    <circle cx="114.51" cy="265.38" r="11" fill="#B8422E"/>
+    <circle cx="75.26" cy="144.62" r="11" fill="#1F4D3A"/>
+
+    <!-- Geometric 方 -->
+    <g stroke-linecap="round" stroke-linejoin="round">
+      <path d="M122 130H234" stroke="#1F4D3A" stroke-width="12"/>
+      <path d="M178 130V212" stroke="#1F4D3A" stroke-width="12"/>
+      <path d="M140 212H216" stroke="#1F4D3A" stroke-width="12"/>
+      <path d="M140 212L118 252" stroke="#B8422E" stroke-width="12"/>
+      <path d="M216 212L238 252" stroke="#B8422E" stroke-width="12"/>
+      <path d="M154 252H202" stroke="#C79A3B" stroke-width="10"/>
+    </g>
+  </g>
+
+  <!-- Wordmark -->
+  <g transform="translate(452 90)">
+    <text x="0" y="74" fill="#1F4D3A" font-size="88" font-weight="800" font-family="'Noto Serif TC','PMingLiU','Songti TC',serif" letter-spacing="2">傷寒方析</text>
+    <text x="0" y="148" fill="#2F4858" font-size="38" font-weight="600" font-family="'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif" letter-spacing="4">SHANGHAN FORMULA ANALYZER</text>
+    <line x1="0" y1="182" x2="860" y2="182" stroke="#D2BE94" stroke-width="3"/>
+    <text x="0" y="242" fill="#6B5B3E" font-size="34" font-weight="500" font-family="'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif" letter-spacing="1">
+      傷寒論方劑性味分析工具
+    </text>
+    <text x="0" y="292" fill="#8A7A60" font-size="26" font-weight="500" font-family="'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif">
+      五味羅盤 · 方劑比較 · 錯題複習
+    </text>
+  </g>
+</svg>
