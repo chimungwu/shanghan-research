@@ -1338,14 +1338,24 @@ function ComparePage({ compareList, setCompareList }) {
                       </div>
 
                       {/* 右卡 */}
-                      <div style={{ flex:"0 0 auto", background: item.vectorSame ? "#fff" : "#FFF8E8", border:"2px solid " + (item.vectorSame ? "#ddd" : "#D4A017"), borderRadius:10, padding:"10px 14px", minWidth:160, textAlign:"center" }}>
-                        <div style={{ fontSize:11, color:"#888", marginBottom:4 }}>{item.targetName}</div>
-                        <div style={{ fontSize:13, fontWeight:700, color: item.vectorSame ? "#333" : "#D4A017", marginBottom:4 }}>{item.targetVec !== "氣化平調" ? item.targetVec : null}</div>
-                        <div style={{ fontSize:11, color:"#888" }}>{item.targetPath}</div>
-                        <div style={{ marginTop:6, padding:"3px 8px", borderRadius:6, fontSize:11, display:"inline-block", background: item.targetNs.includes("溫") ? "#FDEDEC" : item.targetNs.includes("寒") ? "#EBF5FB" : "#FFFDE7", color: item.targetNs.includes("溫") ? "#C0392B" : item.targetNs.includes("寒") ? "#1A5276" : "#666" }}>
-                          {item.targetNs.includes("溫") ? "🔥" : item.targetNs.includes("寒") ? "❄️" : "❄️🔥"} {item.targetNs}
+                      {(() => {
+                        const isNeutral = item.targetNs.includes("寒熱接近");
+                        const isWarm = item.targetNs.includes("溫");
+                        const isCold = item.targetNs.includes("寒");
+                        const nsEmoji = isNeutral ? "❄️🔥" : isWarm ? "🔥" : isCold ? "❄️" : "❄️🔥";
+                        const nsBg = isNeutral ? "#FFFDE7" : isWarm ? "#FDEDEC" : isCold ? "#EBF5FB" : "#FFFDE7";
+                        const nsColor = isNeutral ? "#666" : isWarm ? "#C0392B" : isCold ? "#1A5276" : "#666";
+                        return (
+                        <div style={{ flex:"0 0 auto", background: item.vectorSame ? "#fff" : "#FFF8E8", border:"2px solid " + (item.vectorSame ? "#ddd" : "#D4A017"), borderRadius:10, padding:"10px 14px", minWidth:160, textAlign:"center" }}>
+                          <div style={{ fontSize:11, color:"#888", marginBottom:4 }}>{item.targetName}</div>
+                          <div style={{ fontSize:13, fontWeight:700, color: item.vectorSame ? "#333" : "#D4A017", marginBottom:4 }}>{item.targetVec !== "氣化平調" ? item.targetVec : null}</div>
+                          <div style={{ fontSize:11, color:"#888" }}>{item.targetPath}</div>
+                          <div style={{ marginTop:6, padding:"3px 8px", borderRadius:6, fontSize:11, display:"inline-block", background: nsBg, color: nsColor }}>
+                            {nsEmoji} {item.targetNs}
+                          </div>
                         </div>
-                      </div>
+                        );
+                      })()}
                     </div>
 
                     {/* 分組變化報告 */}
