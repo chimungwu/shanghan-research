@@ -181,10 +181,66 @@ class TcmQiEngine {
    return ["太陽病誤汗致陽虛 (遂漏不止 / 溫陽固表)"];
   }
 
+  // 【先驗規則：太少同病（助陽發表）】(針對麻黃細辛附子湯)
+  if (this.herbs.includes("麻黃") && this.herbs.includes("附子")) {
+    this.finalVectorOverride = "【助陽發表】提振陽氣，溫經散寒";
+    return ["太少同病 (素體陽虛，外感風寒 / 助陽發表)"];
+  }
+
+  // 【先驗規則：溫陽利水】(針對茯苓四逆湯) — 必須在溫陽固脫之前
+  if (this.herbs.includes("茯苓") && this.herbs.includes("附子") && this.herbs.includes("乾薑") && ns >= 0.1) {
+    this.finalVectorOverride = "【溫陽利水】回陽救逆，化氣利水";
+    return ["少陰陽衰水泛 (四肢沉重 / 溫陽利水)"];
+  }
+
+  // 【先驗規則：溫陽固脫】(針對四逆湯、通脈四逆湯、白通湯、四逆加人參湯)
+  if (this.herbs.includes("附子") && this.herbs.includes("乾薑") && ns >= 0.1) {
+    this.finalVectorOverride = "【溫陽固脫】回陽救逆，破陰通陽";
+    return ["少陰寒化證 (亡陽證 / 脈微欲絕)"];
+  }
+
+  // 【先驗規則：真武湯】（附子+白朮+生薑，無乾薑）
+  if (this.herbs.includes("附子") && this.herbs.includes("白朮") && this.herbs.includes("生薑") &&
+      !this.herbs.includes("乾薑") && ns >= 0.1) {
+    this.finalVectorOverride = "【溫陽蒸騰】提振底火，化氣行水";
+    return ["少陰陽衰 (溫陽化氣 / 鎮水消腫)"];
+  }
+
   // 【P0.5 少陰陽衰】(附子+腎，解決真武湯)
   if (this.herbs.includes("附子") && this.organs.includes("腎") && ns >= 0.1) {
    this.finalVectorOverride = "【溫陽蒸騰】提振底火，化氣行水";
    return ["少陰陽衰 (溫陽化氣 / 鎮水消腫)"];
+  }
+
+  // 【先驗規則：五苓散】（澤瀉+茯苓+豬苓+白朮+桂枝，利水滲濕）
+  if (this.herbs.includes("澤瀉") && this.herbs.includes("茯苓") &&
+      this.herbs.includes("豬苓") && this.herbs.includes("白朮") && this.herbs.includes("桂枝")) {
+    this.finalVectorOverride = "【氣化平調】通陽化氣，利水滲濕";
+    return ["水濕內停 (氣化失調 / 利水滲濕)"];
+  }
+
+  // 【先驗規則：桂枝去芍藥湯】（桂枝+甘草+生薑+大棗，去芍藥）— 必須在桂枝甘草湯之前
+  if (this.herbs.includes("桂枝") && this.herbs.includes("甘草") &&
+      this.herbs.includes("生薑") && this.herbs.includes("大棗") &&
+      !this.herbs.includes("芍藥") && !this.herbs.includes("附子")) {
+    this.finalVectorOverride = "【解肌舒脈】宣散而不傷陰，調和營衛";
+    return ["營衛不和 (表證輕淺 / 解肌祛邪)"];
+  }
+
+  // 【先驗規則：桂枝甘草湯】（桂枝+甘草，無附子/生薑/大棗，溫振心陽）
+  if (this.herbs.includes("桂枝") && this.herbs.includes("甘草") &&
+      !this.herbs.includes("附子") && !this.herbs.includes("麻黃") &&
+      !this.herbs.includes("生薑") && !this.herbs.includes("大棗")) {
+    this.finalVectorOverride = "【溫振心陽】助陽氣化，安定心神";
+    return ["心陽不振 (氣化失調 / 溫振心陽)"];
+  }
+
+  // 【先驗規則：理中丸】（人參+乾薑+白朮+甘草，無桂枝/麻黃）
+  if (this.herbs.includes("人參") && this.herbs.includes("乾薑") &&
+      this.herbs.includes("白朮") && this.herbs.includes("甘草") &&
+      !this.herbs.includes("桂枝") && !this.herbs.includes("麻黃")) {
+    this.finalVectorOverride = "【氣化平調】溫中祛寒，建復脾氣";
+    return ["中焦虛寒 (氣化失調 / 溫中復陽)"];
   }
 
   // 【P1 陰質滋補】(地黃、甘草湯類)
@@ -220,6 +276,27 @@ class TcmQiEngine {
   }
 
  
+
+  // 【先驗規則：中道旋轉（瀉心系列）】(針對大黃黃連瀉心湯、附子瀉心湯)
+  if (this.herbs.includes("大黃") &&
+      (this.herbs.includes("黃連") || this.herbs.includes("黃芩")) &&
+      !this.herbs.includes("麻黃") && !this.herbs.includes("葛根")) {
+    this.finalVectorOverride = "【中道旋轉】辛開苦降，交通寒熱";
+    return ["中焦氣機痞塞 (心下痞 / 寒熱錯雜)"];
+  }
+
+  // 【先驗規則：逐下攻積】(針對大承氣湯、小承氣湯)
+  if (this.herbs.includes("大黃") &&
+      (this.herbs.includes("厚朴") || this.herbs.includes("枳實"))) {
+    this.finalVectorOverride = "【向心沉降】逐瘀蕩滌，釜底抽薪";
+    return ["陽明腑實 (胃家實 / 燥屎內結)"];
+  }
+
+  // 【先驗規則：峻下逐水】(針對十棗湯)
+  if (this.herbs.includes("甘遂") && this.herbs.includes("大戟") && this.herbs.includes("芫花")) {
+    this.finalVectorOverride = "【峻下逐水】攻逐水飲，開隧道水";
+    return ["水飲積聚 (懸飲 / 支飲)"];
+  }
 
   // 【P4 中焦樞紐】(修正門檻與排除邏輯)
   if (苦 >= 15 && 辛 >= 15 && this.organs.includes("脾")) {
