@@ -136,10 +136,35 @@ class TcmQiEngine {
     return ["太陽隨經入腑 (其人如狂 / 下焦蓄血)"];
   }
 
+  // 【先驗規則：昇陽舒廉】(針對桂枝加葛根湯)
+  if (this.herbs.includes("桂枝") && this.herbs.includes("葛根")) {
+    this.finalVectorOverride = "【昇陽舒廉】昇津通絡，解肌發表";
+    return ["太陽經氣不舒 (項背強几几 / 昇津止痙)"];
+  }
+
+  // 【先驗規則：解肌下氣】(針對桂枝加厚朴杏子湯)
+  if (this.herbs.includes("桂枝") && this.herbs.includes("厚朴") && this.herbs.includes("杏仁")) {
+    this.finalVectorOverride = "【解肌下氣】宣肺止咳，降逆平喘";
+    return ["營衛不和兼肺氣上逆 (喘家作 / 咳喘有痰)"];
+  }
+
+  // 【先驗規則：溫建中氣】(針對小建中湯)
+  if (this.herbs.includes("桂枝") && this.herbs.includes("芍藥") &&
+      this.herbs.some(h => h.includes("飴") || h.includes("餳"))) {
+    this.finalVectorOverride = "【溫建中氣】甘溫補虛，和裡緩急";
+    return ["中焦虛勞 (裡急腹痛 / 悸衕)"];
+  }
+
   // 【P0 厥陰重鎮】(優先級最高，解決烏梅丸)
   if (酸 >= 50 && 辛 >= 15 && 苦 >= 10) {
    this.finalVectorOverride = "【極致內斂】酸收重鎮，辛以入陰，苦以清降";
    return ["厥陰寒熱錯雜 (酸收辛潤 / 蛔厥定驚)"];
+  }
+
+  // 【先驗規則：溫陽固表】(針對桂枝加附子湯)
+  if (this.herbs.includes("附子") && this.herbs.includes("桂枝") && this.organs.includes("腎") && ns >= 0.1) {
+   this.finalVectorOverride = "【溫陽固表】扶陽解肌，止汗固表";
+   return ["太陽病誤汗致陽虛 (遂漏不止 / 溫陽固表)"];
   }
 
   // 【P0.5 少陰陽衰】(附子+腎，解決真武湯)
