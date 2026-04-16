@@ -130,6 +130,20 @@ class TcmQiEngine {
     return ["外寒內飲 (表不解 / 咳喘有痰)"];
   }
 
+  // 【先驗規則：辛涼宣泄】(針對麻黃杏仁甘草石膏湯) — 必須在表裡雙解之前
+  if (this.herbs.includes("麻黃") && this.herbs.includes("石膏") &&
+      this.herbs.includes("杏仁") && !this.herbs.includes("桂枝")) {
+    this.finalVectorOverride = "【辛涼宣泄】宣肺平喘，清熱除煩";
+    return ["邪熱壅肺 (汗出而喘 / 無大熱)"];
+  }
+
+  // 【先驗規則：表裡雙解】(針對大青龍湯)
+  if (this.herbs.includes("麻黃") && this.herbs.includes("石膏") &&
+      !this.herbs.includes("五味子") && !this.herbs.includes("半夏")) {
+    this.finalVectorOverride = "【表裡雙解】內清鬱熱，外散寒邪";
+    return ["表寒裡熱 (不汗出而煩躁 / 表裡雙解)"];
+  }
+
   // 【先驗規則：逐瘀破結】(針對桃核承氣湯)
   if (this.herbs.includes("桃仁") && this.herbs.includes("桂枝") && this.herbs.includes("大黃")) {
     this.finalVectorOverride = "【逐瘀破結】通下瘀熱，活血化瘀";
