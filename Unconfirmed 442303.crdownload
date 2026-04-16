@@ -1,0 +1,2116 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-QXD54VYQBC"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-QXD54VYQBC');
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>傷寒論方劑性味分析</title>
+<meta name="description" content="以《神農本草經》五味四氣數據，結合藥物用量加權，分析趙開美翻刻宋本《傷寒論》方劑之性味結構">
+<meta name="author" content="吳啓銘">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="shortcut icon" href="assets/favicon.svg">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="傷寒方析">
+<meta property="og:title" content="傷寒論方劑性味分析">
+<meta property="og:description" content="方劑性味分析、方劑比較、測驗與錯題複習工具">
+<meta property="og:url" content="https://chimungwu.github.io/shanghan-research/">
+<meta property="og:image" content="https://chimungwu.github.io/shanghan-research/assets/og-cover-a3.png">
+<meta property="og:image:secure_url" content="https://chimungwu.github.io/shanghan-research/assets/og-cover-a3.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="傷寒論方劑性味分析">
+<meta name="twitter:description" content="方劑性味分析、方劑比較、測驗與錯題複習工具">
+<meta name="twitter:image" content="https://chimungwu.github.io/shanghan-research/assets/og-cover-a3.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;800&family=Noto+Serif+TC:wght@600;700;800&display=swap" rel="stylesheet">
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Noto Sans TC',sans-serif}select,button,input{font-family:inherit}button{cursor:pointer}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js?v=20260416b"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js?v=20260416b"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js?v=20260416b"></script>
+<script src="herb_database.js?v=20260416b"></script>
+<script src="data.js?v=20260416b"></script>
+<script src="core.browser.js?v=20260416b"></script>
+<script>
+// ====== TCM QI-ENGINE v5.3.3 ======
+// 阿銘醫師設計：古典中醫氣化推導引擎 (Final Stable Edition)
+class TcmQiEngine {
+ constructor(formula) {
+  this.f = formula || {};
+  this.v = (formula && formula.fp) || {};
+  this.herbs = (formula && formula.hd) ? formula.hd.map(h => h.n) : [];
+  this.organs = (formula && formula.hd)
+   ? formula.hd.flatMap(h => h.jg || [])
+   : [];
+  this.finalVectorOverride = null;
+  this.CONFIG = {
+   SIGNIFICANT_BIT: 15,
+   P4_RATIO_THRESHOLD: 40
+  };
+ }
+
+ // ── 表面向量：門戶開闔 ──
+ getSurfaceVector() {
+  const { 辛 = 0, 酸 = 0, 苦 = 0 } = this.v;
+
+  // 【核心修正】君藥判定：只要有麻黃且無酸收（芍藥、五味子、烏梅）
+  const hasMaHuang = this.herbs.includes("麻黃");
+  const hasSourConstraint = this.herbs.some(h => ["芍藥", "五味子", "烏梅", "山茱萸"].includes(h));
+
+  if (hasMaHuang && !hasSourConstraint) {
+   return "PURE_EXPLOSION"; // 麻黃帶頭且無酸拉住，無視甘、苦，直接炸開
+  }
+
+  // 桂枝湯邏輯：有辛有酸(芍藥)，判定為解肌
+  if (this.herbs.includes("桂枝") && hasSourConstraint) {
+   return "RELEASE_WITH_HOLD";
+  }
+
+  // 原有保底邏輯...
+  if (辛 < 20) return "STABLE";
+  const holdBackPower = 酸 + (苦 * 0.5);
+  if (holdBackPower >= 辛 * 0.3) return "RELEASE_WITH_HOLD";
+  return "PURE_EXPLOSION";
+ }
+
+ // ── 病機判斷（核心層次） ──
+ getPathology() {
+  const { 苦 = 0, 辛 = 0, 鹹 = 0, 甘 = 0, 酸 = 0 } = this.v;
+  const ns = this.f.ns || 0;
+  const surface = this.getSurfaceVector();
+  let results = [];
+
+  // 【P0 厥陰重鎮】(優先級最高，解決烏梅丸)
+  if (酸 >= 50 && 辛 >= 15 && 苦 >= 10) {
+   this.finalVectorOverride = "【極致內斂】酸收重鎮，辛以入陰，苦以清降";
+   return ["厥陰寒熱錯雜 (酸收辛潤 / 蛔厥定驚)"];
+  }
+
+  // 【P0.5 少陰陽衰】(附子+腎，解決真武湯)
+  if (this.herbs.includes("附子") && this.organs.includes("腎")) {
+   this.finalVectorOverride = "【溫陽蒸騰】提振底火，化氣行水";
+   return ["少陰陽衰 (溫陽化氣 / 鎮水消腫)"];
+  }
+
+  // 【P1 陰質滋補】(地黃、甘草湯類)
+  if (甘 > 30 && this.organs.includes("心") && this.organs.includes("腎") && Math.abs(ns) < 0.5) {
+   this.finalVectorOverride = "【內斂滋濡】填補陰液，寧心定悸";
+   return ["陰血虧損 (滋陰養血 / 復脈定悸)"];
+  }
+
+  // 【P2 鹹苦攻下】(增加鹹味身分證)
+  if (苦 >= 15 && 鹹 >= 10 && this.organs.includes("大腸")) {
+   this.finalVectorOverride = "【向心沉降】盪滌實邪，通腑泄熱";
+   return ["熱結實邪 (盪滌積滯 / 苦寒通降)"];
+  }
+
+  // 【P2.1 重鎮降逆】(解決旋覆代赭湯)
+  if (this.herbs.some(h => ["代赭石", "旋覆花", "代赭"].includes(h))) {
+   this.finalVectorOverride = "【重鎮降逆】平衝降逆，化痰消痞";
+   return ["胃氣上逆 (濁氣不降 / 鎮逆理氣)"];
+  }
+
+  // 【P3 少陽樞紐】(柴胡+黃芩身分證，解決小柴胡)
+  if (this.herbs.includes("柴胡") && this.herbs.includes("黃芩") && this.organs.includes("膽")) {
+   this.finalVectorOverride = "【樞紐旋轉】和解少陽，宣通內外";
+   return ["少陽樞紐不利 (和解表裡 / 往來寒熱)"];
+  }
+
+  // 【P5 溫中復陽】(解決甘草乾薑湯/理中丸；排除瀉心湯)
+  const hasExpelHerb = this.herbs.some(h => ["麻黃", "桂枝", "葛根", "細辛"].includes(h));
+  const hasBitterCold = this.herbs.some(h => ["黃連", "黃芩"].includes(h));
+  if (辛 >= 20 && 甘 >= 30 && !hasExpelHerb && !hasBitterCold) {
+   this.finalVectorOverride = "【溫煦內斂】守中復陽，化氣生津";
+   return ["陽氣虛衰 (辛甘化陽 / 溫中復陽)"];
+  }
+
+ 
+
+  // 【P4 中焦樞紐】(修正門檻與排除邏輯)
+  if (苦 >= 15 && 辛 >= 15 && this.organs.includes("脾")) {
+   const hasSurfaceHerb = this.herbs.some(h => ["麻黃", "葛根", "桂枝"].includes(h));
+   const hasBitterHerb = this.herbs.some(h => ["黃連", "黃芩"].includes(h));
+   const hasAcridHerb = this.herbs.some(h => ["乾薑", "生薑", "半夏"].includes(h));
+   const isSunFocus = this.organs.filter(o => o === "膀胱").length > 2;
+
+   if (!hasSurfaceHerb && !isSunFocus && hasBitterHerb && hasAcridHerb) {
+    this.finalVectorOverride = "【中道旋轉】重建氣機樞紐，交通寒熱";
+    return ["中焦氣機痞塞 (寒熱錯雜 / 辛開苦降)"];
+   }
+  }
+
+
+  // 【P6 殘餘表/裡熱判定】
+  if (this.organs.some(o => ["肺", "膀胱"].includes(o))) {
+   if (surface === "PURE_EXPLOSION") {
+    this.finalVectorOverride = "【強力發散】強行開竅，透邪外出";
+    results.push("衛閉營鬱 (表實感)");
+   }
+   if (surface === "RELEASE_WITH_HOLD") {
+    this.finalVectorOverride = "【解肌舒脈】宣散而不傷陰";
+    results.push("營衛不和 / 經氣不舒");
+   }
+  }
+
+  // 陽明氣熱 (白虎湯類)
+  if (ns <= -1.0 && (this.organs.includes("胃") || this.organs.includes("肺"))) {
+   results.push("陽明氣熱 (清熱生津 / 辛寒清散)");
+  }
+
+  return results.length > 0 ? results : ["氣化平調"];
+ }
+
+ render() {
+  const path = this.getPathology();
+  const ns = this.f.ns || 0;
+  const finalVector = this.finalVectorOverride || "【氣化平調】";
+
+  return {
+   能量背景: ns >= 0.5 ? "助陽化氣" : (ns <= -0.5 ? "清熱涼血" : "致中和"),
+   空間向量: finalVector,
+   病機解析: path.join("；"),
+   作用靶點: [...new Set(this.organs)].join("、"),
+   qiSummary: `此方以【${ns >= 0.5 ? "助陽化氣" : (ns <= -0.5 ? "清熱涼血" : "致中和")}】為背景。呈現【${finalVector}】。旨在處理：${path.join("；")}之態勢。`
+  };
+ }
+}
+// ====== END TCM QI-ENGINE ======</script>
+
+<script type="text/babel">
+
+const {useState, useMemo, useEffect} = React;
+const COMPARE_LIMIT = 8;
+const {
+  CATEGORIES,
+  TENDENCIES,
+  FLAVORS,
+  COMPARE_GROUPS,
+  createBrowserStorageAdapter,
+  createWrongBookStore,
+  createFavoritesStore,
+  createQuizQuestion,
+  buildWrongEntry,
+} = window.AppCore;
+const FLAVOR_COLORS = { "辛":"#A0A0A0", "甘":"#D4A017", "苦":"#C94435", "酸":"#3A8F5C", "鹹":"#34495E" };
+const TENDENCY_COLORS = { "大溫":"#C0392B", "偏溫":"#E67E22", "平性":"#7F8C8D", "偏寒":"#3498DB", "大寒":"#2471A3" };
+
+function RadarChart({ fp, fp2, label, label2, size = 280 }) {
+  const cx = size / 2, cy = size / 2;
+  const R = size * 0.32;
+  const TOP_VIEWBOX_PADDING = 30;
+  const angles = FLAVORS.map((_, i) => (Math.PI / 2) + (2 * Math.PI * i) / 5);
+  const toXY = (angle, r) => [cx + r * Math.cos(angle), cy - r * Math.sin(angle)];
+
+  const levels = [20, 40, 60, 80, 100];
+  const maxVal = 100;
+
+  const getPoints = (data) => {
+    return FLAVORS.map((f, i) => {
+      const val = data[f] || 0;
+      const r = (val / maxVal) * R;
+      return toXY(angles[i], r);
+    });
+  };
+
+  const pts = getPoints(fp);
+  const pathStr = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0]},${p[1]}`).join(" ") + " Z";
+  
+  let pathStr2 = null;
+  if (fp2) {
+    const pts2 = getPoints(fp2);
+    pathStr2 = pts2.map((p, i) => `${i === 0 ? "M" : "L"}${p[0]},${p[1]}`).join(" ") + " Z";
+  }
+
+  return (
+    <svg viewBox={`0 ${-TOP_VIEWBOX_PADDING} ${size} ${size + TOP_VIEWBOX_PADDING}`} style={{ width: "100%", maxWidth: size }}>
+      {/* Grid levels */}
+      {levels.map(lv => {
+        const r = (lv / maxVal) * R;
+        const gridPts = angles.map(a => toXY(a, r));
+        const d = gridPts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0]},${p[1]}`).join(" ") + " Z";
+        return <path key={lv} d={d} fill="none" stroke="#e0ddd8" strokeWidth={0.8} opacity={0.7} />;
+      })}
+      {/* Axis lines */}
+      {angles.map((a, i) => {
+        const [ex, ey] = toXY(a, R);
+        return <line key={i} x1={cx} y1={cy} x2={ex} y2={ey} stroke="#d5d0c8" strokeWidth={0.6} />;
+      })}
+      {/* Comparison fill (if exists) */}
+      {pathStr2 && (
+        <path d={pathStr2} fill="#3498DB" fillOpacity={0.12} stroke="#3498DB" strokeWidth={1.5} strokeDasharray="4 3" />
+      )}
+      {/* Data fill */}
+      <path d={pathStr} fill="#C94435" fillOpacity={fp2 ? 0.15 : 0.12} stroke="#C94435" strokeWidth={2} />
+      {/* Data points */}
+      {pts.map((p, i) => (
+        <circle key={i} cx={p[0]} cy={p[1]} r={3.5} fill={FLAVOR_COLORS[FLAVORS[i]]}
+          stroke={FLAVORS[i]==="辛" ? "#666" : "#fff"} strokeWidth={1.5} />
+      ))}
+      {fp2 && getPoints(fp2).map((p, i) => (
+        <circle key={`c${i}`} cx={p[0]} cy={p[1]} r={2.5} fill="#3498DB" stroke="#fff" strokeWidth={1} />
+      ))}
+      {/* Labels */}
+      {FLAVORS.map((f, i) => {
+        const labelR = R + 28;
+        const [lx, ly] = toXY(angles[i], labelR);
+        const val = fp[f] || 0;
+        const labelColor = f==="辛" ? "#666" : FLAVOR_COLORS[f];
+        return (
+          <g key={f}>
+            <text x={lx} y={ly - 6} textAnchor="middle" fontSize={14} fontWeight={700} fill={labelColor}>{f}</text>
+            <text x={lx} y={ly + 8} textAnchor="middle" fontSize={10} fill="#999">{val > 0 ? `${val}%` : "-"}</text>
+          </g>
+        );
+      })}
+      {/* Legend */}
+      {label && (
+        <g>
+          <rect x={4} y={size - 16} width={8} height={8} rx={2} fill="#C94435" opacity={0.6} />
+          <text x={16} y={size - 9} fontSize={9} fill="#888">{label}</text>
+        </g>
+      )}
+      {label2 && fp2 && (
+        <g>
+          <rect x={4} y={size - 28} width={8} height={8} rx={2} fill="#3498DB" opacity={0.6} />
+          <text x={16} y={size - 21} fontSize={9} fill="#888">{label2}</text>
+        </g>
+      )}
+    </svg>
+  );
+}
+
+function FlavorBar({ fp, height = 24 }) {
+  const ordered = FLAVORS.filter(f => fp[f]);
+  return (
+    <div style={{ display:"flex", borderRadius:4, overflow:"hidden", height, width:"100%", border:"1px solid #e0e0e0" }}>
+      {ordered.map(f => (
+        <div key={f} title={`${f} ${fp[f]}%`} style={{
+          width: `${fp[f]}%`, background: FLAVOR_COLORS[f],
+          display:"flex", alignItems:"center", justifyContent:"center",
+          fontSize: fp[f] > 12 ? 11 : 0, color: f==="辛" || f==="甘" ? "#333" : "#fff", fontWeight:600, letterSpacing:1
+        }}>{fp[f] > 12 ? `${f}${fp[f]}%` : ""}</div>
+      ))}
+    </div>
+  );
+}
+
+function NatureGauge({ score }) {
+  const pct = Math.max(0, Math.min(100, (score + 2.5) / 5 * 100));
+  return (
+    <div style={{ position:"relative", height:12, background:"linear-gradient(90deg, #2471A3 0%, #3498DB 25%, #95A5A6 50%, #E67E22 75%, #C0392B 100%)", borderRadius:6 }}>
+      <div style={{
+        position:"absolute", top:-2, left:`${pct}%`, transform:"translateX(-50%)",
+        width:16, height:16, borderRadius:"50%", background:"#fff", border:"2px solid #2c3e50",
+        boxShadow:"0 1px 4px rgba(0,0,0,0.3)"
+      }} />
+    </div>
+  );
+}
+
+function HerbPill({ herb, expanded, onToggle }) {
+  const bg = herb.t === "溫" ? "#FDEBD0" : herb.t === "微溫" ? "#FEF5E7" :
+    herb.t === "寒" ? "#D6EAF8" : herb.t === "微寒" ? "#EBF5FB" :
+    herb.t === "小寒" ? "#EBF5FB" : herb.t === "涼" ? "#E8F8F5" : "#F2F3F4";
+  const herbBtLines = expanded && herb.bt ? herb.bt.split(/\\n|\n/) : [];
+  return (
+    <div style={{ display:"inline-block", margin:"2px 3px", verticalAlign:"top" }}>
+      <span onClick={onToggle} style={{
+        display:"inline-flex", alignItems:"center", gap:4, padding:"3px 10px", borderRadius:20,
+        background: expanded ? "#2c3e50" : bg, color: expanded ? "#fff" : "inherit",
+        fontSize:13, border: expanded ? "1px solid #2c3e50" : "1px solid rgba(0,0,0,0.08)",
+        cursor: herb.bt ? "pointer" : "default", transition:"all 0.15s",
+      }}>
+        <span style={{ fontWeight:600 }}>{herb.n}</span>
+        <span style={{ opacity:0.6, fontSize:11 }}>{herb.w}兩</span>
+        {herb.f.map(f => <span key={f} style={{ color: expanded ? "#ffd" : FLAVOR_COLORS[f], fontWeight:700, fontSize:11 }}>{f}</span>)}
+        {herb.t && <span style={{ opacity:0.6, fontSize:10 }}>{herb.t}</span>}
+        {herb.bt && <span style={{ fontSize:9, opacity:0.5 }}>{expanded ? "▲" : "▼"}</span>}
+      </span>
+      {expanded && herb.bt && (
+        <div style={{
+          marginTop:6, padding:"12px 14px", borderRadius:10,
+          background:"#faf8f5", border:"1px solid #e0d8c8",
+          fontSize:13, lineHeight:2, color:"#555", maxWidth:420,
+          boxShadow:"0 2px 8px rgba(0,0,0,0.06)"
+        }}>
+          {herbBtLines.map((part, i) => {
+            if (part.startsWith("※")) {
+              const anPart = part.replace("※", "");
+              return <div key={i} style={{
+                marginTop:10, padding:"10px 12px", borderRadius:6,
+                background:"#fff8e8", border:"1px solid #e0d0b8",
+                fontSize:12, lineHeight:1.8, color:"#8a6d3b", fontStyle:"italic"
+              }}>
+                <span style={{ fontWeight:700, fontStyle:"normal", color:"#7a5c2a" }}>【按】</span>{anPart}
+              </div>;
+            }
+            return <div key={i} style={{
+              marginTop:6, padding:"6px 10px", borderRadius:6,
+              background: i === 0 ? "transparent" : "#f0ede8",
+              fontSize:12, lineHeight:1.8, color: i === 0 ? "#555" : "#777"
+            }}>{part}</div>;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FormulaCard({ formula, onClick, selected, isFav, onToggleFav }) {
+  return (
+    <div onClick={onClick} style={{
+      padding:"14px 16px", cursor:"pointer", borderBottom:"1px solid #eee",
+      background: selected ? "#FFF8F0" : "#fff",
+      borderLeft: selected ? "3px solid #C94435" : "3px solid transparent",
+      transition:"all 0.15s"
+    }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+        <span style={{ fontWeight:700, fontSize:15, fontFamily:"'Noto Serif TC', serif" }}>{formula.n}</span>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <span style={{
+            fontSize:11, padding:"2px 8px", borderRadius:10, fontWeight:600,
+            color: TENDENCY_COLORS[formula.nt], background: `${TENDENCY_COLORS[formula.nt]}18`
+          }}>{formula.nt}</span>
+          <span onClick={e => { e.stopPropagation(); onToggleFav && onToggleFav(formula.n); }}
+            style={{ fontSize:16, cursor:"pointer", color: isFav ? "#D4A017" : "#ddd", transition:"color 0.2s" }}
+            title={isFav ? "取消收藏" : "收藏"}>{isFav ? "★" : "☆"}</span>
+        </div>
+      </div>
+      <div style={{ fontSize:11, color:"#888", marginBottom:6 }}>{formula.c}</div>
+      <FlavorBar fp={formula.fp} height={18} />
+    </div>
+  );
+}
+
+function ScatterPlot({ data, selected, onSelect }) {
+  const W = 680, H = 400, P = 50;
+  const minS = -2.5, maxS = 2.5;
+  const allFlavors = data.map(d => {
+    const sorted = FLAVORS.filter(f => d.fp[f]).sort((a,b) => (d.fp[b]||0) - (d.fp[a]||0));
+    return sorted[0] || "甘";
+  });
+  
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width:"100%", maxHeight:400 }}>
+      <defs>
+        <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#2471A3" stopOpacity="0.06" />
+          <stop offset="50%" stopColor="#95A5A6" stopOpacity="0.03" />
+          <stop offset="100%" stopColor="#C0392B" stopOpacity="0.06" />
+        </linearGradient>
+      </defs>
+      <rect x={P} y={10} width={W-P*2} height={H-P-10} fill="url(#bgGrad)" rx={8} />
+      
+      {/* Axes */}
+      <line x1={P} y1={H-P} x2={W-P} y2={H-P} stroke="#ccc" />
+      <line x1={P} y1={10} x2={P} y2={H-P} stroke="#ccc" />
+      
+      {/* X labels */}
+      {[-2,-1,0,1,2].map(v => {
+        const x = P + (v - minS) / (maxS - minS) * (W - P*2);
+        return <g key={v}>
+          <line x1={x} y1={H-P} x2={x} y2={H-P+5} stroke="#999" />
+          <text x={x} y={H-P+18} textAnchor="middle" fontSize={10} fill="#666">{v}</text>
+        </g>;
+      })}
+      <text x={W/2} y={H-8} textAnchor="middle" fontSize={11} fill="#888" fontWeight={600}>← 寒涼 ─── 寒熱指數 ─── 溫熱 →</text>
+      
+      {/* Y label */}
+      <text x={14} y={H/2-20} textAnchor="middle" fontSize={11} fill="#888" fontWeight={600} transform={`rotate(-90, 14, ${H/2-20})`}>藥物總用量（兩）</text>
+      
+      {/* Data points */}
+      {data.map((d, i) => {
+        const x = P + (d.ns - minS) / (maxS - minS) * (W - P*2);
+        const maxW = Math.max(...data.map(dd => dd.tw));
+        const y = H - P - (d.tw / maxW) * (H - P - 20);
+        const r = Math.max(4, Math.min(12, d.hd.length * 1.5));
+        const color = FLAVOR_COLORS[allFlavors[i]];
+        const isSel = selected && selected.n === d.n;
+        return (
+          <g key={i} onClick={() => onSelect(d)} style={{ cursor:"pointer" }}>
+            <circle cx={x} cy={y} r={isSel ? r + 3 : r} fill={color} opacity={isSel ? 1 : 0.7}
+              stroke={isSel ? "#2c3e50" : "none"} strokeWidth={2} />
+            {(isSel || d.tw > 30) && (
+              <text x={x} y={y - r - 4} textAnchor="middle" fontSize={10} fill="#333" fontWeight={600}>{d.n}</text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function OverviewStats({ data }) {
+  const tendCount = {};
+  data.forEach(d => { tendCount[d.nt] = (tendCount[d.nt]||0)+1; });
+  const flavorTotals = {};
+  FLAVORS.forEach(f => { flavorTotals[f] = 0; });
+  data.forEach(d => { FLAVORS.forEach(f => { if(d.fp[f]) flavorTotals[f] += d.fp[f]; }); });
+  const flavorSum = Object.values(flavorTotals).reduce((a,b)=>a+b,0);
+
+  return (
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:20 }}>
+      <div style={{ background:"#fff", borderRadius:12, padding:16, border:"1px solid #eee" }}>
+        <div style={{ fontSize:12, color:"#888", marginBottom:10, fontWeight:600 }}>四氣偏性分佈</div>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+          {TENDENCIES.slice(1).map(t => (
+            <div key={t} style={{ textAlign:"center", flex:1, minWidth:50 }}>
+              <div style={{ fontSize:22, fontWeight:800, color: TENDENCY_COLORS[t] }}>{tendCount[t]||0}</div>
+              <div style={{ fontSize:11, color:"#666" }}>{t}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ background:"#fff", borderRadius:12, padding:16, border:"1px solid #eee", display:"flex", flexDirection:"column", alignItems:"center" }}>
+        <div style={{ fontSize:12, color:"#888", marginBottom:4, fontWeight:600, alignSelf:"flex-start" }}>五味累計分佈</div>
+        {(() => {
+          const fpNorm = {};
+          const maxF = Math.max(...FLAVORS.map(f => flavorTotals[f]));
+          FLAVORS.forEach(f => { fpNorm[f] = maxF > 0 ? Math.round(flavorTotals[f] / maxF * 100) : 0; });
+          return <RadarChart fp={fpNorm} size={240} />;
+        })()}
+      </div>
+    </div>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div style={{ background:"#fff", borderRadius:12, padding:"20px 24px", marginBottom:16, border:"1px solid #eee" }}>
+      <h3 style={{ margin:"0 0 12px", fontSize:17, fontFamily:"'Noto Serif TC', serif", color:"#1a1a2e", borderBottom:"2px solid #C94435", paddingBottom:8, display:"inline-block" }}>{title}</h3>
+      <div style={{ fontSize:14, lineHeight:2, color:"#444" }}>{children}</div>
+    </div>
+  );
+}
+
+function DefTable({ headers, rows }) {
+  return (
+    <table style={{ width:"100%", borderCollapse:"collapse", margin:"12px 0", fontSize:13 }}>
+      <thead>
+        <tr>{headers.map((h,i) => <th key={i} style={{ textAlign:"left", padding:"8px 12px", background:"#f5f3f0", borderBottom:"2px solid #ddd", fontWeight:700, color:"#333" }}>{h}</th>)}</tr>
+      </thead>
+      <tbody>
+        {rows.map((row,i) => (
+          <tr key={i} style={{ borderBottom:"1px solid #eee" }}>
+            {row.map((cell,j) => <td key={j} style={{ padding:"8px 12px", verticalAlign:"top" }}>{cell}</td>)}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function AboutPage() {
+  return (
+    <div style={{ padding:"20px 24px", maxWidth:800, margin:"0 auto" }}>
+
+      <Section title="一、目的">
+        <p>本研究以《神農本草經》記載的藥物性味（五味、四氣）為基礎數據，對趙開美翻刻宋本《傷寒論》中的方劑進行量化分析。透過將每味藥物的性味屬性乘以其在方劑中的用量（兩），計算出各方劑在五味（酸、苦、甘、辛、鹹）和四氣（寒、熱、溫、涼、平）上的加權分佈與整體偏性，以數據化方式呈現仲景組方的性味結構特徵。</p>
+      </Section>
+
+      <Section title="二、典籍版本">
+        <p style={{ fontWeight:600, color:"#1a1a2e" }}>方劑來源——趙開美翻刻宋本《傷寒論》</p>
+        <p>底本為明萬曆二十七年（1599年）趙開美刊刻《仲景全書》中之《傷寒論》十卷，原書依北宋治平二年（1065年）林億等校正之「治平本」翻刻，是目前學術界公認最具權威性的通行版本。全書以六經辨證為綱，系統整理東漢張仲景對外感疾病的論述，載方 113 首（含燒褌散），本研究收錄其中可進行性味分析的 {DATA.length} 首（燒褌散非標準藥方不納入）。宋本少陽病篇（卷第五）僅有條文而無獨立方劑，另「禹餘糧丸」原文載「禹餘糧方闕」，均未收錄。</p>
+
+        <p style={{ fontWeight:600, color:"#1a1a2e", marginTop:16 }}>比較版本——桂林古本《傷寒雜病論》</p>
+        <p>據稱為張仲景第十二稿之世傳抄本，清末由張仲景後裔張紹祖傳予桂林左盛德，再傳羅哲初。1934年黃竹齋抄寫為《白雲閣藏本》，1939年校刊公世，1960年廣西人民出版社據羅哲初之子獻出的原稿排印出版。全書十六卷，較宋本多出六氣主客、傷暑病、熱病、濕病、傷燥病、傷風病、寒病等篇章，並將《金匱要略》內容整合其中，結構最為完整。學術界對其真偽仍有爭議——支持者認為其補足了宋本的殘缺，反對者認為部分條文反映了清代溫病學派的影響。本研究將桂林古本作為異文比較的參考版本之一。</p>
+
+        <p style={{ fontWeight:600, color:"#1a1a2e", marginTop:16 }}>比較版本——康平本（康治本）《傷寒論》</p>
+        <p>日本傳本。康平本為日本丹波雅忠於康平三年（1060年）據家傳本抄寫，早於宋本定本時間（1065年）五年，被認為可能是唐代空海（弘法大師）於貞元二十一年（805年）傳入日本的古本。此本最重要的特徵是保留了「頂格、降一格、降兩格」的行格體例以及旁注、腳注的區分，可能反映了不同時期注解疊加的痕跡——頂格文字被認為是仲景原文，降格文字可能為後世注文。1858年由日本京都書林刊行，後經大塚敬節校正、葉橘泉重校。康治本為更早的殘本，僅存 50 首方，1849年為戶上重較氏發現。本研究將康平本作為異文比較的另一參考版本。</p>
+
+        <p style={{ fontWeight:600, color:"#1a1a2e", marginTop:16 }}>版本比較說明</p>
+        <p>本研究的性味分析以宋本為唯一藍本，桂林古本與康平本僅用於條文異文的對照參考。在每首方劑的「相關條文」中，若該條文在桂林古本或康平本中有文字出入，可點擊「異文」按鈕展開比較。</p>
+
+        <p style={{ fontWeight:600, color:"#1a1a2e", marginTop:16 }}>性味來源——《神農本草經》</p>
+        <p>藥物的五味與四氣數據以《神農本草經》原文記載為主。現存本草經為清代輯佚本（孫星衍輯本），主要從宋《證類本草》中還原。部分藥物因名稱差異需做對應（見下方藥名對應表）。</p>
+        <p>本草經未獨立收錄的藥物，依以下文獻手動補充性味：</p>
+        <p>
+          <strong>《名醫別錄》</strong>（漢末魏晉）：補充細辛「味辛溫」等本草經缺載之品目。原書已佚，內容保存於《本草經集注》及《證類本草》中。<br/>
+          <strong>《本草經集注》</strong>（南朝梁·陶弘景）：陶弘景以朱墨分書保存本草經原文與別錄增補，為判斷藥名對應及性味修訂的重要參考。<br/>
+          <strong>歷代本草共識</strong>：如生薑與乾姜之鮮乾區分、桂枝兼具甘味、蔥白通陽散寒等，屬歷代本草學家及臨床家長期累積的公認見解，非取自單一文獻。<br/>
+          <strong>藥食同源品目</strong>：粳米、膠飴（飴糖）、香豉（淡豆豉）、雞子（雞蛋）等食物性藥材，依傳統飲食療法文獻及中藥學教科書補充性味。
+        </p>
+      </Section>
+
+      <Section title="三、操作型定義">
+        <p style={{ fontWeight:600, color:"#1a1a2e" }}>3.1 五味定義與量化</p>
+        <p>五味指酸、苦、甘、辛、鹹五種藥味，取自《神農本草經》原文「味X」之記載。每味藥可有一個或多個味（如桂枝辛甘）。</p>
+        <p>量化方式：某方劑中，某味的權重 = 該方劑中所有含此味藥物的用量（兩）之和。五味百分比 = 某味權重 ÷ 方劑總用量 × 100%。因一味藥可兼具多味，故五味百分比之和可能超過 100%。</p>
+        <p>五味以五角雷達圖（Pentagon Radar Chart）呈現，五個頂點分別代表酸、苦、甘、辛、鹹，數值越大表示該味在方劑中的佔比越高。</p>
+
+        <DefTable
+          headers={["五味", "色標", "代表藥例"]}
+          rows={[
+            [<span style={{fontWeight:700,color:"#666"}}>辛</span>, <span style={{display:"inline-block",width:14,height:14,borderRadius:3,background:"#A0A0A0",border:"1px solid #666",verticalAlign:"middle"}} />, "桂枝、生薑、附子、細辛、麻黃"],
+            [<span style={{fontWeight:700,color:"#D4A017"}}>甘</span>, <span style={{display:"inline-block",width:14,height:14,borderRadius:3,background:"#D4A017",verticalAlign:"middle"}} />, "甘草、大棗、人參、茯苓、膠飴"],
+            [<span style={{fontWeight:700,color:"#C94435"}}>苦</span>, <span style={{display:"inline-block",width:14,height:14,borderRadius:3,background:"#C94435",verticalAlign:"middle"}} />, "黃連、黃芩、大黃、梔子、厚朴"],
+            [<span style={{fontWeight:700,color:"#3A8F5C"}}>酸</span>, <span style={{display:"inline-block",width:14,height:14,borderRadius:3,background:"#3A8F5C",verticalAlign:"middle"}} />, "烏梅、五味子、芍藥"],
+            [<span style={{fontWeight:700,color:"#34495E"}}>鹹</span>, <span style={{display:"inline-block",width:14,height:14,borderRadius:3,background:"#34495E",verticalAlign:"middle"}} />, "牡蠣、龍骨、芒硝、水蛭"],
+          ]}
+        />
+
+        <p style={{ fontWeight:600, color:"#1a1a2e", marginTop:20 }}>3.2 四氣定義與量化</p>
+        <p>四氣指藥物的寒、熱、溫、涼四種藥性，加上「平」共五類。取自《神農本草經》原文「味X寒/溫/平」等記載，含修飾語「微」「小」。</p>
+        <p>量化方式：將四氣轉換為數值分數，再以用量加權計算方劑整體的「寒熱指數」。</p>
+
+        <DefTable
+          headers={["四氣", "量化分數", "說明"]}
+          rows={[
+            ["大寒", "-3", "極寒之性"],
+            ["寒", "-2", "寒性"],
+            ["微寒 / 小寒 / 涼", "-1", "偏寒"],
+            ["平", "0", "平性，不偏寒熱"],
+            ["微溫 / 小溫", "+1", "偏溫"],
+            ["溫", "+2", "溫性"],
+            ["大溫 / 熱", "+3", "極溫熱之性"],
+          ]}
+        />
+
+        <p style={{ fontWeight:600, color:"#1a1a2e", marginTop:20 }}>3.3 寒熱指數計算</p>
+        <p>寒熱指數 = Σ（各藥四氣分數 × 該藥用量）÷ 方劑總用量</p>
+        <p>例：四逆湯 = 甘草（平=0）×2兩 + 乾薑（溫=+2）×1.5兩 + 附子（溫=+2）×1.5兩 = (0×2 + 2×1.5 + 2×1.5) ÷ 5 = +1.2</p>
+
+        <DefTable
+          headers={["寒熱指數範圍", "偏性判定", "代表方劑"]}
+          rows={[
+            ["≤ -1.5", "大寒", "大陷胸湯、梔子豉湯、枳實梔子豉湯"],
+            ["-1.5 ~ -0.5", "偏寒", "白虎湯、小承氣湯、炙甘草湯"],
+            ["-0.5 ~ +0.5", "平性", "小柴胡湯、芍藥甘草湯、黃芩湯"],
+            ["+0.5 ~ +1.5", "偏溫", "桂枝湯、四逆湯、理中丸"],
+            ["≥ +1.5", "大溫", "麻黃湯、白通湯、乾薑附子湯"],
+          ]}
+        />
+
+        <p style={{ fontWeight:600, color:"#1a1a2e", marginTop:20 }}>3.4 用量換算</p>
+        <p>方劑中藥物用量以「兩」為統一基準單位，依東漢度量衡進行換算：</p>
+        <DefTable
+          headers={["原文單位", "換算為兩", "備註"]}
+          rows={[
+            ["兩", "1兩", "基準單位（東漢1兩 ≈ 15.6g）"],
+            ["斤", "16兩", "1斤 = 16兩"],
+            ["升", "≈ 5兩", "容量單位，依藥材密度估算"],
+            ["合", "≈ 0.5兩", "1合 = 1/10升"],
+            ["銖", "1/24兩", "24銖 = 1兩"],
+            ["枚（大棗）", "≈ 0.2兩/枚", "依果實大小估算"],
+            ["個（杏仁）", "≈ 0.02兩/個", "小粒藥物"],
+            ["如雞子大", "≈ 3兩", "石膏等礦物"],
+          ]}
+        />
+      </Section>
+
+      <Section title="四、藥名對應表">
+        <p>《傷寒論》與《神農本草經》成書時代不同，部分藥名有異。以下為本研究的對應規則：</p>
+        <DefTable
+          headers={["傷寒論用名", "本草經對應", "說明"]}
+          rows={[
+            ["桂枝", "牡桂（手動補充：辛甘溫）", "牡桂之嫩枝，本草經載牡桂味辛溫"],
+            ["芍藥", "勺藥", "古字通用"],
+            ["生薑", "手動補充：辛微溫", "與乾姜（辛溫）為同物鮮乾之別，性味不同"],
+            ["柴胡", "茨胡", "古字通用"],
+            ["梔子 / 肥梔子", "支子", "古字通用"],
+            ["芒硝", "消石", "同物異名"],
+            ["厚朴", "厚樸", "字形差異"],
+            ["黃檗 / 黃柏", "蘗木", "同物異名"],
+            ["杏仁", "杏核（甘溫）", "杏核之仁，本研究依本草經原文取甘溫"],
+            ["烏梅", "梅實", "同物加工品"],
+            ["萎蕤", "委萎", "即玉竹"],
+            ["白朮", "术", "古今名異"],
+            ["細辛", "手動補充：辛溫", "本草經無獨立條目"],
+            ["生地黃", "乾地黃", "原文載「生者尤良」"],
+          ]}
+        />
+        <p style={{ fontSize:12, color:"#888", marginTop:8 }}>手動補充：指《神農本草經》中未獨立收錄，依傳統本草學文獻補充性味的藥物。包括生薑、桂枝、細辛、粳米、膠飴、蔥白、香豉、赤小豆、雞子黃等。</p>
+      </Section>
+
+      <Section title="五、性味爭議藥物">
+        <p>以下藥物的性味在本研究中經過研究者手動補正（表中標示「手動」者）。手動補正的原因包括：本草經未記載四氣（需引用後世文獻補充）、或本草經記載與臨床實踐明顯不符（需調整五味）。本研究原則上以《神農本草經》為準，但列出補正緣由供研究者參考。</p>
+        <DefTable
+          headers={["藥物", "本研究取值", "本草經原文", "後世觀點 / 爭議"]}
+          rows={[
+            ["杏仁", "甘溫", "杏核　味甘溫", "《名醫別錄》載味苦溫有毒。後世本草多以杏仁味苦，苦能降氣，主治咳喘。臨床上杏仁多歸於苦味，與本草經甘味之記載有顯著差異。"],
+            ["桂枝", "辛甘溫（手動）", "牡桂　味辛溫", "本草經載牡桂味辛溫，桂枝為牡桂之嫩枝。後世多認為桂枝兼具甘味，本研究取辛甘溫。另箘桂（肉桂）亦味辛溫，與桂枝為同物不同部位，功效有別。"],
+            ["生薑", "辛微溫（手動）", "（本草經僅載乾姜）", "本草經不分生薑、乾姜，僅載乾姜味辛溫。生薑為鮮品，性偏散表，乾姜為乾燥品，性偏溫中。本研究將生薑獨立設為辛微溫，以區別於乾姜之辛溫。"],
+            ["芍藥", "苦（無四氣）", "勺藥　味苦", "本草經僅載味苦，未記四氣，故不納入寒熱指數計算。後世分白芍（苦酸微寒）、赤芍（苦微寒），性味有別。傷寒論中芍藥未區分赤白。"],
+            ["芒硝", "苦寒", "消石　味苦寒", "本研究以芒硝對應消石。但消石與芒硝是否為同一物，歷代有爭議。一說消石為硝石（硝酸鉀），芒硝為朴硝（硫酸鈉），二者成分不同。"],
+            ["細辛", "辛溫（手動）", "（本草經無獨立條目）", "本草經未見細辛獨立條目，本研究依《名醫別錄》「味辛溫」補充。後世有「細辛不過錢」之說，用量爭議亦大。"],
+            ["赤石脂", "甘平", "五石脂　味甘平", "本草經將青石脂、赤石脂、黃石脂、白石脂、黑石脂合為一條，統稱味甘平。後世認為赤石脂味甘酸溫，與本草經有異。"],
+            ["麻仁 / 麻子仁", "辛平", "麻蕡　味辛平", "本草經載麻蕡味辛平，但麻子仁為大麻種仁，後世多認為味甘平，潤腸通便。辛味與甘味之別影響方劑五味分析。"],
+            ["黃連", "寒（手動）", "黃連　味苦無毒", "本草經僅載「苦無毒」，未載四氣。《中藥學》明確記載為寒性。本研究依《中藥學》設定為寒。"],
+            ["桔梗", "平（手動）", "桔梗　味苦無毒", "本草經僅載「苦無毒」，未載四氣。《中藥學》教材記載為平性。本研究依《中藥學》設定為平。"],
+            ["茵陳蒿", "微寒（手動）", "茵陳蒿　味苦無毒", "本草經僅載「苦無毒」，未載四氣。《名醫別錄》載「茵陳蒿：微寒」。本研究依《名醫別錄》設定為微寒。"],
+            ["秦皮", "寒（手動）", "秦皮　味酸無毒", "本草經僅載「酸無毒」，未載四氣。《名醫別錄》載「秦皮：寒」。本研究依《名醫別錄》設定為寒。"],
+            ["柴胡", "苦、辛（手動）", "茨胡　味苦平", "《神農本草經》載柴胡「味苦」，未載辛味。然現代中藥學明確記載柴胡具有「升散」之功，屬辛味。本研究將柴胡五味由「苦」更正為「苦、辛」，使方劑之辛味計算得以與臨床功能相符，支援「少陽為樞」之病機判定邏輯。"],
+            ["黃芩", "寒（手動）", "黃芩　味苦平", "本草經載「味苦平」，未明確四氣。臨床實踐中黃芩主治諸熱黃疸，清熱燥濕，功效以寒涼為主，故設定為寒性。"],
+          ]}
+        />
+      </Section>
+
+      <Section title="六、限制">
+        <p>1. <strong>性味來源單一</strong>：僅取《神農本草經》之記載，未參照後世本草（如《本草經集注》《名醫別錄》等）的增補修訂。部分藥物在本草經中的四氣記載缺失（如芍藥僅載「味苦」無四氣），此類藥物在計算寒熱指數時不納入四氣權重。</p>
+        <p>2. <strong>五味疊加</strong>：一味藥可兼具多味（如桂枝辛甘），計算時每個味分別乘以該藥用量，因此五味百分比之和可能超過 100%。此為設計選擇，旨在忠實反映藥物的複合味性。</p>
+        <p>3. <strong>用量換算為估算</strong>：升、合等容量單位換算為兩時，因不同藥材密度差異，存在誤差。本研究取統一近似值，重在方劑內各藥的相對比例而非絕對重量。</p>
+        <p>4. <strong>炮製部分納入</strong>：炮製（炙、炮、去皮尖等）可改變藥物性味。本研究已就影響最大的兩味藥物進行炮製後的性味調整：</p>
+        <p style={{ paddingLeft:16 }}>
+          <strong>甘草（炙 vs 生）</strong>：宋本 112 首方劑中，有 69 方使用炙甘草，僅甘草湯、桔梗湯 2 方用生甘草。甘草經蜜炙後，性質由甘平轉為甘溫，功效從清熱解毒轉為補中益氣。本研究將炙甘草設為甘溫（四氣分數 +2），生甘草維持甘平（四氣分數 0），依宋本原文炮製標註自動區分。
+        </p>
+        <p style={{ paddingLeft:16 }}>
+          <strong>附子（生用 vs 炮）</strong>：傷寒論中附子有「炮，去皮，破八片」與「生用，去皮，破八片」兩種用法。生附子回陽力猛、毒性較大，本研究設為辛、大溫（四氣分數 +3）；炮附子毒性降低、溫性和緩，維持辛溫（四氣分數 +2）。如四逆湯、通脈四逆湯、白通湯等 8 方用生附子，真武湯、附子湯等 12 方用炮附子，依宋本原文炮製標註自動區分。
+        </p>
+        <p style={{ paddingLeft:16 }}>
+          <strong>尚未納入的炮製</strong>：厚朴（炙，去皮）、枳實（炙）、半夏（洗）等藥物亦有炮製標註，但炮製後性味變化相對較小或文獻依據不足，本研究暫未調整，仍為潛在誤差來源。
+        </p>
+        <p style={{ paddingLeft:16 }}>
+          <strong>未來改進方向</strong>：若能整合宋《證類本草》中保存的《名醫別錄》性味增補及《雷公炮炙論》炮製記載，可進一步建立更完整的炮製修正體系。惟此二書原書已佚，僅存轉引內容，需審慎考證後方可採用。
+        </p>
+        <p>5. <strong>歸經未納入</strong>：《神農本草經》未明確記載歸經，故本研究僅分析五味與四氣兩個維度。（本項目已於 2026-04-16 更新：歸經資料已補入，請見下方說明）</p>
+        <p>6. <strong>歸經來源</strong>：方劑中各藥物的歸經，依據現代中醫院校教材《中藥學》所載之歸經結論填入。用於支援「開闔樞」門戶邏輯與病機自動診斷模組（TCM Qi-Engine）。研究中每一味藥的歸經判定，均以中醫院校共識為準，非取自單一文獻或個人詮釋。</p>
+        
+        
+        
+      </Section>
+
+      <Section title="七、參考文獻">
+        <p style={{ fontSize:13, lineHeight:2.2, color:"#555" }}>
+          [1] 基于多维宏观量化方法解读《伤寒论》寒热错杂证组方规律. 中华中医药学会期刊, 2023. 該研究同樣以四氣五味計分×劑量的加權方法，分析傷寒論 7 首寒熱錯雜證方劑（黃連湯、半夏瀉心湯、烏梅丸等）的四氣五味作用度，為本研究的量化方法提供了學術先例。<br/>
+          [2] 神農本草經. 清·孫星衍輯本. 本研究性味數據之主要來源。<br/>
+          [3] 傷寒論. 趙開美翻刻宋本（明萬曆二十七年刊本）. 本研究方劑來源之底本。<br/>
+          [4] 本草經集注. 南朝梁·陶弘景. 以朱墨分書保存本草經原文與名醫別錄增補，為後世本草學之樞紐。<br/>
+          [5] 名醫別錄. 漢末魏晉間醫家撰，原書已佚. 記錄後世醫家對本草經藥物的四氣、性味增補意見，內容保存於《本草經集注》及《證類本草》中。<br/>
+          [6] 雷公炮炙論. 南朝劉宋·雷斅，原書已佚. 中國最早炮製專書，記載藥物炮製方法及前後性味變化，內容散見於《證類本草》。<br/>
+          [7] 經史證類備急本草（證類本草）. 宋·唐慎微. 分層收錄歷代本草文獻，為保存古本草資料最完整之著作，未來可作為多層性味分析之依據。
+        </p>
+      </Section>
+
+      <div style={{ textAlign:"center", padding:"24px 0", fontSize:11, color:"#bbb", lineHeight:1.8 }}>
+        方劑來源：趙開美翻刻宋本《傷寒論》（明萬曆二十七年刊本）<br/>
+        性味來源：《神農本草經》<br/>
+      </div>
+    </div>
+  );
+}
+
+function AuthorPage() {
+  return (
+    <div style={{ padding:"20px 24px", maxWidth:800, margin:"0 auto" }}>
+
+      {/* Author Card */}
+      <div style={{ background:"#fff", borderRadius:12, padding:"32px 28px", marginBottom:20, border:"1px solid #eee", textAlign:"center" }}>
+        <div style={{
+          width:80, height:80, borderRadius:"50%", margin:"0 auto 16px",
+          background:"linear-gradient(135deg, #1a1a2e, #0f3460)",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          fontSize:36, color:"#fff", fontFamily:"'Noto Serif TC', serif"
+        }}>吳</div>
+        <h2 style={{ margin:"0 0 4px", fontSize:24, fontFamily:"'Noto Serif TC', serif", color:"#1a1a2e" }}>吳啓銘</h2>
+        <p style={{ fontSize:14, color:"#888", margin:"0 0 16px" }}>中醫博士</p>
+        <div style={{ display:"flex", justifyContent:"center", gap:8, flexWrap:"wrap" }}>
+          {["教育部審定助理教授", "臻品中醫診所副院長"].map(t => (
+            <span key={t} style={{
+              fontSize:13, padding:"4px 14px", borderRadius:20,
+              background:"#f5f3f0", color:"#555", border:"1px solid #e8e4df"
+            }}>{t}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Motivation */}
+      <Section title="研究初心">
+        <p>《傷寒論》是中醫臨床的根基之作，然而千年經典的研究從來不是一件容易的事。條文之間的邏輯、方劑組成的巧思、性味配伍的深意，往往需要反覆推敲、長年浸潤，才能略窺堂奧。</p>
+        <p>近年人工智慧技術的發展，為經典研究開啟了新的可能。我開始嘗試以 AI 作為輔助工具，將《神農本草經》的性味數據與《傷寒論》的方劑組成進行系統性的量化分析——不是要取代傳統的讀書方法，而是希望透過數據化的視角，讓自己對每一首方劑的性味結構有更清晰、更直覺的理解。</p>
+        <p>這個研究網頁是學習過程中的產物。將它整理出來與大家分享，一方面是希望能為同樣在研讀傷寒論的同道提供一個參考工具，另一方面也期待拋磚引玉，讓更多人一起探索經典與現代技術結合的可能性。</p>
+        <p>中醫的學問博大精深，任何量化分析都有其局限。數據可以輔助思考，但無法取代臨床經驗與對經典的深入體悟。希望這個小小的工具，能成為大家學習路上的一個起點，而非終點。</p>
+      </Section>
+
+      <Section title="使用聲明">
+        <p>本工具供學習研究，不作醫療診斷或處方依據。</p>
+      </Section>
+
+      <Section title="版本資訊">
+        <DefTable
+          headers={["項目", "內容"]}
+          rows={[
+            ["資料版號", "宋本112方-2026.04"],
+            ["最後更新日", "2026-04-12"],
+            ["方劑數", `${DATA.length} 首`],
+            ["底本版本", "趙開美翻刻宋本《傷寒論》（明萬曆二十七年刊本）"],
+          ]}
+        />
+      </Section>
+
+      {/* CC License */}
+      <Section title="授權條款">
+        <div style={{ display:"flex", gap:16, alignItems:"flex-start", flexWrap:"wrap" }}>
+          <div style={{ flex:1, minWidth:280 }}>
+            <p>本網站內容採用 <strong>Creative Commons 姓名標示-非商業性-相同方式分享 4.0 國際授權條款</strong>（CC BY-NC-SA 4.0）授權。</p>
+            <p style={{ marginTop:12 }}>您可以自由地：</p>
+            <p>
+              <strong>分享</strong> — 以任何媒介或格式重製及散布本素材。<br/>
+              <strong>改作</strong> — 重混、轉換本素材、及依本素材建立新素材。
+            </p>
+            <p style={{ marginTop:12 }}>但須遵守以下條件：</p>
+            <p>
+              <strong>姓名標示</strong> — 您必須標示作者姓名（吳啓銘），並提供授權條款的連結。<br/>
+              <strong>非商業性</strong> — 您不得將本素材用於商業目的。<br/>
+              <strong>相同方式分享</strong> — 若您改作本素材，必須以相同授權條款散布。
+            </p>
+          </div>
+          <div style={{ textAlign:"center", padding:16 }}>
+            <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hant" target="_blank" rel="noopener noreferrer" style={{ textDecoration:"none" }}>
+              <div style={{
+                display:"flex", gap:4, justifyContent:"center", marginBottom:8
+              }}>
+                {["CC","BY","NC","SA"].map(icon => (
+                  <span key={icon} style={{
+                    width:32, height:32, borderRadius:"50%", background:"#333", color:"#fff",
+                    display:"inline-flex", alignItems:"center", justifyContent:"center",
+                    fontSize:10, fontWeight:800
+                  }}>{icon}</span>
+                ))}
+              </div>
+              <span style={{ fontSize:12, color:"#888" }}>CC BY-NC-SA 4.0</span>
+            </a>
+          </div>
+        </div>
+      </Section>
+
+      {/* Contact */}
+      <div style={{ background:"#fff", borderRadius:12, padding:"20px 24px", marginBottom:20, border:"1px solid #eee", textAlign:"center" }}>
+        <a href="https://drwu.carrd.co" target="_blank" rel="noopener noreferrer" style={{
+          display:"inline-flex", alignItems:"center", gap:8, padding:"10px 24px",
+          background:"linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)", color:"#fff",
+          borderRadius:8, textDecoration:"none", fontSize:14, fontWeight:600, letterSpacing:1,
+          transition:"opacity 0.2s",
+        }}>
+          <span style={{ fontSize:18 }}>👨‍⚕️</span>
+          <span>吳啓銘中醫師線上名片</span>
+          <span style={{ fontSize:12, opacity:0.7 }}>↗</span>
+        </a>
+      </div>
+
+      <div style={{ textAlign:"center", padding:"24px 0", fontSize:11, color:"#bbb", lineHeight:1.8 }}>
+        © 2026 吳啓銘 中醫博士　　以 CC BY-NC-SA 4.0 授權釋出
+      </div>
+    </div>
+  );
+}
+
+function ClauseItem({ cl, isLast }) {
+  const [showDiffs, setShowDiffs] = useState(false);
+  const hasDiffs = cl.d && cl.d.length > 0;
+  return (
+    <div style={{ padding:"10px 14px", borderBottom: isLast ? "none" : "1px solid #f0f0f0" }}>
+      <div style={{ fontSize:13, lineHeight:1.8, color:"#444" }}>
+        <span style={{
+          display:"inline-block", fontSize:10, fontWeight:700, color:"#fff",
+          background:"#1a1a2e", borderRadius:4, padding:"1px 8px", marginRight:8,
+          verticalAlign:"middle", fontFamily:"monospace",
+        }}>{cl.num}</span>
+        <span>{cl.t}</span>
+        {hasDiffs && (
+          <span onClick={() => setShowDiffs(!showDiffs)} style={{
+            display:"inline-block", fontSize:9, color:"#C94435", marginLeft:8,
+            cursor:"pointer", verticalAlign:"middle", fontWeight:600,
+            padding:"1px 6px", borderRadius:3, border:"1px solid #C94435",
+          }}>{showDiffs ? "收合比較" : `異文 ${cl.d.length}`}</span>
+        )}
+      </div>
+      {showDiffs && hasDiffs && (
+        <div style={{ marginTop:6, paddingLeft:8, borderLeft:"2px solid #e0ddd8" }}>
+          {cl.d.map((d, j) => (
+            <div key={j} style={{ fontSize:12, lineHeight:1.7, color:"#777", marginBottom:4 }}>
+              <span style={{
+                display:"inline-block", fontSize:9, fontWeight:700,
+                color: d.v === "桂" ? "#2E86C1" : "#E67E22",
+                background: d.v === "桂" ? "#EBF5FB" : "#FEF5E7",
+                borderRadius:3, padding:"0px 5px", marginRight:6,
+              }}>{d.v === "桂" ? "桂林古本" : "康治本"}</span>
+              <span>{d.t}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DetailPanel({ selected, compare, setCompare, isFav, onToggleFav, onAddCompare, onClose, filteredList, onNavigate, compareList, compareLimit = COMPARE_LIMIT }) {
+  const [expandedHerb, setExpandedHerb] = useState(null);
+  const [showQi, setShowQi] = useState(false);
+  const qi = useMemo(() => new TcmQiEngine(selected), [selected]);
+  const [compareNotice, setCompareNotice] = useState("");
+  useEffect(() => {
+    setCompareNotice("");
+  }, [selected.n]);
+  const currentIndex = filteredList ? filteredList.findIndex(f => f.n === selected.n) : -1;
+  const hasPrev = filteredList && currentIndex > 0;
+  const hasNext = filteredList && currentIndex >= 0 && currentIndex < filteredList.length - 1;
+  const isInCompare = Array.isArray(compareList) && compareList.includes(selected.n);
+  const compareIsFull = Array.isArray(compareList) && compareList.length >= compareLimit;
+  const goPrev = () => { if (hasPrev) { setExpandedHerb(null); onNavigate(filteredList[currentIndex - 1]); } };
+  const goNext = () => { if (hasNext) { setExpandedHerb(null); onNavigate(filteredList[currentIndex + 1]); } };
+  const handleAddCompare = () => {
+    if (!onAddCompare) return;
+    const status = onAddCompare(selected.n);
+    if (status === "added") setCompareNotice("已加入比較清單");
+    else if (status === "exists") setCompareNotice("此方劑已在比較清單");
+    else if (status === "full") setCompareNotice(`比較清單上限為 ${compareLimit} 首，請先移除一首`);
+    else setCompareNotice("");
+  };
+  return (
+    <div style={{
+      flex:1, background:"#fff", borderRadius:12, padding:20, border:"1px solid #eee",
+      alignSelf:"flex-start"
+    }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <button onClick={onClose} style={{
+            background:"none", border:"none", cursor:"pointer", fontSize:14, color:"#888", padding:"4px 0"
+          }}>← 返回列表</button>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          {filteredList && currentIndex >= 0 && (
+            <span style={{ fontSize:12, color:"#aaa" }}>{currentIndex + 1} / {filteredList.length}</span>
+          )}
+          <button onClick={goPrev} disabled={!hasPrev} style={{
+            background:"none", border:"1px solid #ddd", borderRadius:6, cursor: hasPrev ? "pointer" : "default",
+            fontSize:14, color: hasPrev ? "#555" : "#ccc", padding:"4px 10px", fontWeight:600
+          }}>‹</button>
+          <button onClick={goNext} disabled={!hasNext} style={{
+            background:"none", border:"1px solid #ddd", borderRadius:6, cursor: hasNext ? "pointer" : "default",
+            fontSize:14, color: hasNext ? "#555" : "#ccc", padding:"4px 10px", fontWeight:600
+          }}>›</button>
+        </div>
+      </div>
+
+      <div style={{ marginBottom:12 }}>
+        <h2 style={{ margin:0, fontSize:22, fontFamily:"'Noto Serif TC', serif" }}>{selected.n}</h2>
+        <div style={{ fontSize:13, color:"#888", marginTop:4 }}>{selected.c}</div>
+      </div>
+
+      {/* Action buttons */}
+      <div style={{ display:"flex", gap:8, marginBottom:8, alignItems:"center", flexWrap:"wrap" }}>
+        <button onClick={() => onToggleFav && onToggleFav(selected.n)} style={{
+          padding:"6px 14px", borderRadius:6, border:"1px solid #ddd", cursor:"pointer", fontSize:12, fontWeight:600,
+          background: isFav ? "#D4A017" : "#fff", color: isFav ? "#fff" : "#888"
+        }}>{isFav ? "★ 已收藏" : "☆ 收藏"}</button>
+        <button onClick={handleAddCompare} style={{
+          padding:"6px 14px", borderRadius:6, border:"1px solid #ddd", cursor:"pointer", fontSize:12, fontWeight:600,
+          background: isInCompare ? "#ECF7EF" : "#fff",
+          color: isInCompare ? "#2E7D32" : (compareIsFull ? "#B03A2E" : "#555"),
+          borderColor: isInCompare ? "#A5D6A7" : (compareIsFull ? "#E6B0AA" : "#ddd")
+        }}>{isInCompare ? "✓ 已在比較清單" : "+ 加入比較"}</button>
+        <span style={{ fontSize:11, color:"#999" }}>比較清單 {Array.isArray(compareList) ? compareList.length : 0}/{compareLimit}</span>
+      </div>
+      {compareNotice && (
+        <div style={{
+          marginBottom:16, fontSize:12,
+          color: compareNotice.includes("上限") ? "#C62828" : compareNotice.includes("已在") ? "#777" : "#2E7D32"
+        }}>
+          {compareNotice}
+        </div>
+      )}
+      {!compareNotice && <div style={{ marginBottom:16 }} />}
+
+      {/* Nature score */}
+      <div style={{ marginBottom:16 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+          <span style={{ fontSize:12, color:"#888" }}>寒熱指數</span>
+          <span style={{ fontSize:14, fontWeight:700, color: TENDENCY_COLORS[selected.nt] }}>
+            {selected.ns > 0 ? "+" : ""}{selected.ns} ({selected.nt})
+          </span>
+        </div>
+        <NatureGauge score={selected.ns} />
+        <div style={{ display:"flex", justifyContent:"space-between", fontSize:10, color:"#aaa", marginTop:4 }}>
+          <span>大寒</span><span>偏寒</span><span>平</span><span>偏溫</span><span>大溫</span>
+        </div>
+      </div>
+
+      {/* Flavor radar */}
+      <div style={{ marginBottom:16 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+          <span style={{ fontSize:12, color:"#888" }}>五味分佈</span>
+          <select value={compare ? compare.n : ""} onChange={e => {
+            const f = DATA.find(d => d.n === e.target.value);
+            setCompare(f || null);
+          }} style={{ fontSize:11, padding:"2px 6px", borderRadius:4, border:"1px solid #ddd", color:"#555", background:"#fafafa" }}>
+            <option value="">對比方劑...</option>
+            {DATA.filter(d => d.n !== selected.n).map(d => (
+              <option key={d.n} value={d.n}>{d.n}</option>
+            ))}
+          </select>
+        </div>
+        <div style={{ display:"flex", justifyContent:"center" }}>
+          <RadarChart fp={selected.fp} fp2={compare ? compare.fp : null}
+            label={selected.n} label2={compare ? compare.n : null} size={300} />
+        </div>
+      </div>
+
+      {/* Nature groups */}
+      <div style={{ marginBottom:16 }}>
+        <div style={{ fontSize:12, color:"#888", marginBottom:6 }}>四氣構成</div>
+        <div style={{ display:"flex", gap:8 }}>
+          {["寒涼","平","溫熱"].map(g => (
+            <div key={g} style={{ flex:1, textAlign:"center", padding:"8px 0", borderRadius:8, background:"#f8f8f8" }}>
+              <div style={{ fontSize:18, fontWeight:700, color: g==="寒涼"?"#3498DB":g==="溫熱"?"#E67E22":"#7F8C8D" }}>
+                {selected.ng[g]}%
+              </div>
+              <div style={{ fontSize:11, color:"#888" }}>{g}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Formula original text */}
+      {(selected.hl || selected.cm) && (
+      <div style={{ marginBottom:16 }}>
+        <div style={{ fontSize:12, color:"#888", marginBottom:6 }}>組成與煎服法（原文）</div>
+        <div style={{ padding:"12px 16px", borderRadius:8, background:"#faf8f5", border:"1px solid #e8e4df", fontSize:13, lineHeight:2, color:"#555" }}>
+          {selected.hl && <p style={{ margin:"0 0 8px", fontWeight:600 }}>{selected.hl}</p>}
+          {selected.cm && <p style={{ margin:0 }}>{selected.cm}</p>}
+        </div>
+      </div>
+      )}
+
+      {/* Herbs */}
+      <div style={{ marginBottom:16 }}>
+        <div style={{ fontSize:12, color:"#888", marginBottom:8 }}>
+          藥物組成（{selected.hd.length} 味，總 {selected.tw} 兩）
+          <span style={{ fontSize:10, color:"#bbb", marginLeft:8 }}>點擊藥物查看本草經原文</span>
+        </div>
+        <div style={{ display:"flex", flexWrap:"wrap" }}>
+          {[...selected.hd].sort((a,b) => b.w - a.w).map((h,i) => (
+            <HerbPill key={i} herb={h}
+              expanded={expandedHerb === h.n}
+              onToggle={() => setExpandedHerb(expandedHerb === h.n ? null : h.n)} />
+          ))}
+        </div>
+      </div>
+
+      {/* Clauses */}
+      {selected.cl && selected.cl.length > 0 && (
+      <div>
+        <div style={{ fontSize:12, color:"#888", marginBottom:8 }}>
+          相關條文（{selected.cl.length} 條）
+        </div>
+        <div style={{ maxHeight:400, overflowY:"auto", borderRadius:8, border:"1px solid #eee" }}>
+          {selected.cl.map((cl, i) => (
+            <ClauseItem key={i} cl={cl} isLast={i === selected.cl.length-1} />
+          ))}
+        </div>
+      </div>
+      )}
+
+      {/* ===== 氣化解析 ===== */}
+      <div style={{ marginTop:20 }}>
+        <button onClick={() => setShowQi(!showQi)} style={{
+          width:"100%", padding:"10px 14px", borderRadius:8,
+          border:"1px solid " + (showQi ? "#2c3e50" : "#ddd"),
+          background: showQi ? "#2c3e50" : "#fff",
+          color: showQi ? "#fff" : "#555",
+          fontWeight:700, fontSize:13, cursor:"pointer",
+          display:"flex", alignItems:"center", justifyContent:"space-between",
+          transition:"all 0.2s"
+        }}>
+          <span>🌊 氣化解析（阿銘醫師設計）</span>
+          <span style={{ fontSize:11 }}>{showQi ? "▲ 收合" : "▼ 展開"}</span>
+        </button>
+        {showQi && (() => {
+          let r;
+          try { r = qi.render(); } catch(e) { console.error("Qi engine error:", e); return null; }
+          const qiBox = {
+            marginTop:12, padding:"14px 16px", borderRadius:10,
+            background:"#faf8f5", border:"1px solid #e8e4df"
+          };
+          const qiRow = (label, val) => val ? (
+            <div style={{ marginBottom:10 }}>
+              <div style={{ fontSize:11, color:"#999", fontWeight:600, marginBottom:3 }}>{label}</div>
+              <div style={{ fontSize:13, color:"#333", lineHeight:1.7 }}>{val}</div>
+            </div>
+          ) : null;
+          return (
+            <div style={qiBox}>
+              {qiRow("能量背景", r.能量背景)}
+              {r.空間向量 !== "【氣化平調】" && qiRow("空間向量", r.空間向量)}
+              {qiRow("作用靶點", r.作用靶點)}
+              {qiRow("病機解析", r.病機解析)}
+              {qiRow("治療意圖", r.治療意圖)}
+              <div style={{ marginTop:14, paddingTop:12, borderTop:"1px solid #e0dcd8", fontSize:12, color:"#888", lineHeight:1.7 }}>
+                本分析由 TcmQiEngine 自動生成・僅供研究輔助
+              </div>
+              <div style={{
+                marginTop:14, padding:"12px 14px", borderRadius:8,
+                background:"#fef9f0", color:"#5c4a3a",
+                fontSize:13, lineHeight:1.8
+              }}>
+                <div style={{ fontWeight:700, marginBottom:6, color:"#D4A017" }}>🌊 氣化總結</div>
+                <div>{r.qiSummary}</div>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+    </div>
+  );
+}
+
+function ComparePage({ compareList, setCompareList }) {
+  const EXTRA_COMPARE_GROUPS = [
+    { title: "發汗方", desc: "解表發汗代表方", formulas: ["麻黃湯", "桂枝湯", "桂枝加葛根湯", "葛根湯", "大青龍湯", "小青龍湯"] },
+    { title: "水氣方", desc: "利水化氣與治水代表方", formulas: ["五苓散", "真武湯", "茯苓桂枝白朮甘草湯", "豬苓湯"] },
+    { title: "瀉下方", desc: "攻下通腑代表方", formulas: ["大承氣湯", "小承氣湯", "調胃承氣湯", "麻子仁丸", "蜜煎導"] },
+    { title: "少陽和解", desc: "和解少陽代表方", formulas: ["小柴胡湯", "大柴胡湯", "柴胡桂枝湯", "柴胡加龍骨牡蠣湯"] },
+    { title: "溫中補虛", desc: "溫中散寒、補虛調中", formulas: ["小建中湯", "理中丸", "吳茱萸湯"] },
+    { title: "清氣分熱", desc: "清陽明氣分熱", formulas: ["白虎湯", "白虎加人參湯"] },
+  ];
+  const compareGroupOptions = [...COMPARE_GROUPS, ...EXTRA_COMPARE_GROUPS];
+  const items = compareList.map(n => DATA.find(d => d.n === n)).filter(Boolean);
+  const allHerbs = {};
+  items.forEach(fm => fm.hd.forEach(h => { if (!allHerbs[h.n]) allHerbs[h.n] = {}; allHerbs[h.n][fm.n] = h; }));
+  const herbNames = Object.keys(allHerbs);
+  const shared = herbNames.filter(h => items.every(fm => fm.hd.some(x => x.n === h)));
+  const unique = {};
+  items.forEach(fm => { unique[fm.n] = fm.hd.filter(h => !shared.includes(h.n)).map(h => h.n); });
+  const formatNum = (v) => {
+    const n = Math.round(v * 10) / 10;
+    return `${n}`.replace(/\.0$/, "");
+  };
+  const toNum = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const buildFlavorSummary = (base, target) => {
+    const basePf = base.pf || Object.keys(base.fp || {}).reduce((a,b) => (base.fp[b]||0) > (base.fp[a]||0) ? b : a, "甘");
+    const targetPf = target.pf || Object.keys(target.fp || {}).reduce((a,b) => (target.fp[b]||0) > (target.fp[a]||0) ? b : a, "甘");
+    const dominantChanged = basePf !== targetPf
+      ? `主味由${targetPf}取代${basePf}`
+      : `主味維持${basePf}`;
+    const deltas = FLAVORS
+      .map((f) => ({ f, diff: toNum(target.fp[f]) - toNum(base.fp[f]) }))
+      .filter((x) => Math.abs(x.diff) >= 3)
+      .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
+      .slice(0, 2)
+      .map((x) => `${x.f}${x.diff > 0 ? "↑" : "↓"}${formatNum(Math.abs(x.diff))}%`);
+    if (deltas.length === 0) return `${dominantChanged}，五味比例接近`;
+    return `${dominantChanged}，${deltas.join("、")}`;
+  };
+  // 整合 TcmQiEngine 病機分析到比較摘要
+  const getEngineLabel = (fm) => {
+    try {
+    const v = (fm && fm.fp) || {};
+    const ns = (fm && fm.ns) || 0;
+    const hd = (fm && fm.hd) || [];
+    const organs = [...new Set((hd || []).flatMap(h => (h && h.jg) || []))];
+    const 辛=v.get('辛',0), 酸=v.get('酸',0), 苦=v.get('苦',0), 甘=v.get('甘',0), 鹹=v.get('鹹',0);
+    if (v.get('酸',0) >= 50 && 辛 >= 15 && 苦 >= 10) return ["厥陰寒熱錯雜","極致內斂","P1"];
+    if (hd.some(h=>h.n==='附子') && organs.includes('腎') && ns >= 0.3) return ["少陰陽衰","溫陽蒸騰","P0.5"];
+    if (甘 > 30 && organs.includes('心') && organs.includes('腎') && Math.abs(ns) < 0.5) return ["陰血虧損","內斂滋濡","P2"];
+    if (苦 >= 15 && 鹹 >= 10 && organs.includes('大腸')) return ["熱結實邪","向心沉降","P3"];
+    const hasSurface = hd.some(h => ["麻黃","桂枝","生薑","葛根","細辛"].includes(h.n));
+    if (辛 >= 20 && 甘 >= 30 && !hasSurface) return ["陽氣虛衰","溫煦內斂","P3.5"];
+    if (苦 >= 15 && 辛 >= 15 && organs.includes('脾')) {
+      if (organs.includes('膽')) return ["少陽樞紐不利","樞紐旋轉","P4"];
+      const hb = hd.some(h => ["黃連","黃芩"].includes(h.n));
+      const ha = hd.some(h => ["乾薑","生薑","半夏"].includes(h.n));
+      if (hb && ha) return ["中焦氣機痞塞","中道旋轉","P4"];
+    }
+    if (辛 >= 20 && (酸 + 苦*0.5) >= 辛*0.3) return ["營衛不和","解肌舒脈","P5"];
+    if (辛 >= 20) return ["衛閉營鬱","強力發散","P5"];
+    return ["氣化平調", 苦 > 辛 ? "向心沉降" : "氣化平調","P5"];
+    } catch(e) { return ["氣化平調","氣化平調","P5"]; }
+  };
+
+  const buildDeltaSummary = (base, target) => {
+    const baseMap = Object.fromEntries(base.hd.map(h => [h.n, toNum(h.w)]));
+    const targetMap = Object.fromEntries(target.hd.map(h => [h.n, toNum(h.w)]));
+    const added = target.hd.filter(h => !(h.n in baseMap)).map(h => h.n);
+    const removed = base.hd.filter(h => !(h.n in targetMap)).map(h => h.n);
+    const adjusted = target.hd
+      .filter(h => h.n in baseMap)
+      .map(h => ({ name: h.n, diff: toNum(h.w) - baseMap[h.n] }))
+      .filter(x => Math.abs(x.diff) >= 0.5)
+      .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
+      .map(x => `${x.name}${x.diff > 0 ? "增" : "減"}${formatNum(Math.abs(x.diff))}兩`);
+
+    const baseEngine = getEngineLabel(base);
+    const targetEngine = getEngineLabel(target);
+    const baseVec = baseEngine[1];
+    const targetVec = targetEngine[1];
+    const basePath = baseEngine[0];
+    const targetPath = targetEngine[0];
+
+    const nsDiff = target.ns - base.ns;
+    const getNsWord = (n) => n > 0.5 ? "偏溫" : n < -0.5 ? "偏寒" : "寒熱接近";
+
+    // 組成的變化描述
+    let herbChange = "";
+    if (added.length && removed.length) {
+      herbChange = `增 ${added.slice(0,2).join("、")}，去 ${removed.slice(0,2).join("、")}`;
+    } else if (added.length) {
+      herbChange = `增 ${added.slice(0,2).join("、")}`;
+    } else if (removed.length) {
+      herbChange = `去 ${removed.slice(0,2).join("、")}`;
+    } else if (adjusted.length) {
+      herbChange = `調整 ${adjusted.slice(0,2).join("、")}`;
+    } else {
+      herbChange = "組成不變";
+    }
+
+    // 分組變化報告
+    const flavorDeltas = FLAVORS
+      .map(f => ({ f, diff: toNum(target.fp[f]) - toNum(base.fp[f]) }))
+      .filter(x => Math.abs(x.diff) >= 2)
+      .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+    const doseAdjusted = target.hd
+      .filter(h => h.n in baseMap)
+      .map(h => ({ n: h.n, diff: toNum(h.w) - baseMap[h.n], baseW: baseMap[h.n], targetW: toNum(h.w) }))
+      .filter(x => Math.abs(x.diff) >= 0.3)
+      .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+
+    return {
+      targetName: target.n,
+      baseName: base.n,
+      baseLabel: `${base.n}（${basePath}）`,
+      targetLabel: `${target.n}（${targetPath}）`,
+      baseVec: baseVec,
+      targetVec: targetVec,
+      vectorSame: baseVec === targetVec,
+      baseNs: getNsWord(base.ns),
+      targetNs: getNsWord(target.ns),
+      nsDiff: nsDiff,
+      nsAbs: Math.abs(nsDiff),
+      nsDirChanged: getNsWord(base.ns) !== getNsWord(target.ns),
+      flavorDeltas: flavorDeltas,
+      added: added,
+      removed: removed,
+      doseAdjusted: doseAdjusted,
+      doseUnchanged: target.hd
+        .filter(h => h.n in baseMap)
+        .map(h => h.n),
+    };
+  };
+  const comparisonSummary = items.length > 1 ? items.slice(1).map(target => buildDeltaSummary(items[0], target)) : [];
+
+  return (
+    <div style={{ padding:"20px 24px", maxWidth:960, margin:"0 auto" }}>
+      {/* Preset groups */}
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontSize:13, color:"#888", marginBottom:8 }}>預設比較組</div>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          {compareGroupOptions.map((g,i) => (
+            <button key={i} onClick={() => setCompareList(g.formulas)}
+              style={{ padding:"6px 14px", borderRadius:8, border:"1px solid #ddd", background:"#fff",
+                fontSize:12, cursor:"pointer", textAlign:"left", lineHeight:1.4 }}>
+              <span style={{ fontWeight:600 }}>{g.title}</span>
+              <br/><span style={{ color:"#999", fontSize:10 }}>{g.formulas.length}方</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {items.length === 0 ? (
+        <div style={{ background:"#fff", borderRadius:12, padding:40, border:"1px solid #eee", textAlign:"center", color:"#aaa" }}>
+          <p style={{ fontSize:16, marginBottom:12 }}>選擇要比較的方劑</p>
+          <p style={{ fontSize:13 }}>從上方預設組選取，或在「方劑分析」頁點擊方劑詳情中的「加入比較」按鈕</p>
+        </div>
+      ) : (
+        <div>
+          {/* Selected pills */}
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:16 }}>
+            {items.map(fm => (
+              <span key={fm.n} style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"4px 12px",
+                borderRadius:20, background:"#2c3e50", color:"#fff", fontSize:13, fontWeight:600 }}>
+                {fm.n}
+                <span onClick={() => setCompareList(compareList.filter(n => n !== fm.n))}
+                  style={{ cursor:"pointer", opacity:0.6, fontSize:11 }}>✕</span>
+              </span>
+            ))}
+            <button onClick={() => setCompareList([])} style={{ padding:"4px 12px", borderRadius:20,
+              border:"1px solid #ddd", background:"#fff", fontSize:12, cursor:"pointer", color:"#888" }}>清空</button>
+          </div>
+
+          {/* Radar overlay */}
+          <div style={{ background:"#fff", borderRadius:12, padding:20, border:"1px solid #eee", marginBottom:16 }}>
+            <div style={{ fontSize:12, color:"#888", marginBottom:8 }}>五味分佈疊合</div>
+            <svg
+              viewBox={`0 0 340 ${Math.max(320, 264 + (Math.max(1, Math.ceil(items.length / 3)) - 1) * 20 + 32)}`}
+              style={{ width:"100%", maxWidth:400, display:"block", margin:"0 auto" }}
+            >
+              {(() => {
+                const cx=170,cy=140,R=100;
+                const angles = FLAVORS.map((_,i) => Math.PI/2 + 2*Math.PI*i/5);
+                const toXY = (a,r) => [cx+r*Math.cos(a), cy-r*Math.sin(a)];
+                const colors = ["#C94435","#2E86C1","#27AE60","#8E44AD","#F39C12","#16A085","#7D3C98","#2C3E50"];
+                const levels = [20,40,60,80,100];
+                const legendCols = 3;
+                const legendColWidth = 108;
+                const legendStartY = 264;
+                const legendRowHeight = 20;
+                return (
+                  <g>
+                    {levels.map(l => <polygon key={l} points={angles.map(a => toXY(a,R*l/100).join(",")).join(" ")} fill="none" stroke="#eee" strokeWidth={0.5} />)}
+                    {angles.map((a,i) => <line key={i} x1={cx} y1={cy} x2={toXY(a,R)[0]} y2={toXY(a,R)[1]} stroke="#eee" strokeWidth={0.5} />)}
+                    {items.map((fm,fi) => {
+                      const pts = FLAVORS.map((f,i) => toXY(angles[i], (fm.fp[f]||0)/100*R));
+                      return <polygon key={fi} points={pts.map(p=>p.join(",")).join(" ")} fill={colors[fi%8]} fillOpacity={0.12} stroke={colors[fi%8]} strokeWidth={2} />;
+                    })}
+                    {FLAVORS.map((f,i) => {
+                      const [lx,ly] = toXY(angles[i], R+24);
+                      return <text key={f} x={lx} y={ly} textAnchor="middle" fontSize={13} fontWeight={700} fill={f==="辛"?"#666":FLAVOR_COLORS[f]}>{f}</text>;
+                    })}
+                    {items.map((fm,fi) => {
+                      const col = fi % legendCols;
+                      const row = Math.floor(fi / legendCols);
+                      const rowStartIndex = row * legendCols;
+                      const rowItemCount = Math.min(legendCols, items.length - rowStartIndex);
+                      const rowStartX = (340 - rowItemCount * legendColWidth) / 2;
+                      const x = rowStartX + col * legendColWidth;
+                      const y = legendStartY + row * legendRowHeight;
+                      return (
+                        <g key={fi}>
+                          <rect x={x} y={y} width={10} height={10} rx={2} fill={colors[fi%8]} />
+                          <text x={x + 14} y={y + 9} fontSize={11} fill="#666">{fm.n}</text>
+                        </g>
+                      );
+                    })}
+                  </g>
+                );
+              })()}
+            </svg>
+          </div>
+
+          {/* Nature index comparison */}
+          <div style={{ background:"#fff", borderRadius:12, padding:20, border:"1px solid #eee", marginBottom:16 }}>
+            <div style={{ fontSize:12, color:"#888", marginBottom:12 }}>寒熱指數對比</div>
+            {items.map(fm => (
+              <div key={fm.n} style={{ marginBottom:12 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:4 }}>
+                  <span style={{ fontWeight:600 }}>{fm.n}</span>
+                  <span style={{ color: TENDENCY_COLORS[fm.nt], fontWeight:700 }}>{fm.ns > 0 ? "+" : ""}{fm.ns} ({fm.nt})</span>
+                </div>
+                <NatureGauge score={fm.ns} />
+              </div>
+            ))}
+          </div>
+
+          {/* 氣化變化視覺圖 */}
+          {comparisonSummary.length > 0 && (
+            <div style={{ background:"#fff", borderRadius:12, padding:20, border:"1px solid #eee", marginBottom:16 }}>
+              <div style={{ fontSize:12, color:"#888", marginBottom:14 }}>
+                  🌊 氣化變化摘要｜<span style={{ color:"#2c3e50", fontWeight:700 }}>{items[0].n}</span> 為基準方
+                </div>
+              <div style={{ display:"grid", gap:16 }}>
+                {comparisonSummary.map((item, i) => (
+                  <div key={i} style={{ background:"#faf8f5", border:"1px solid #e5dfd5", borderRadius:12, padding:"16px 18px" }}>
+
+                    {/* 基準→目標箭頭圖 */}
+                    <div style={{ display:"flex", alignItems:"center", gap:0, marginBottom:14, flexWrap:"wrap" }}>
+                      {/* 左卡 */}
+                      {(() => {
+                        const isNeutral = item.baseNs.includes("寒熱接近");
+                        const isWarm = item.baseNs.includes("溫");
+                        const isCold = item.baseNs.includes("寒");
+                        const nsEmoji = isNeutral ? "❄️🔥" : isWarm ? "🔥" : isCold ? "❄️" : "❄️🔥";
+                        const nsBg = isNeutral ? "#FFFDE7" : isWarm ? "#FDEDEC" : isCold ? "#EBF5FB" : "#FFFDE7";
+                        const nsColor = isNeutral ? "#666" : isWarm ? "#C0392B" : isCold ? "#1A5276" : "#666";
+                        return (
+                        <div style={{ flex:"0 0 auto", background:"#fff", border:"2px solid #ddd", borderRadius:10, padding:"10px 14px", minWidth:160, textAlign:"center" }}>
+                          <div style={{ fontSize:11, color:"#888", marginBottom:4 }}>{item.baseName}</div>
+                          <div style={{ fontSize:13, fontWeight:700, color:"#333", marginBottom:4 }}>{item.baseVec !== "氣化平調" ? item.baseVec : null}</div>
+                          <div style={{ fontSize:11, color:"#888" }}>{item.basePath}</div>
+                          <div style={{ marginTop:6, padding:"3px 8px", borderRadius:6, fontSize:11, display:"inline-block", background: nsBg, color: nsColor }}>
+                            {nsEmoji} {item.baseNs}
+                          </div>
+                        </div>
+                        );
+                      })()}
+
+                      {/* 箭頭區 */}
+                      <div style={{ flex:"1", display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"0 12px", minWidth:120 }}>
+                        <div style={{ fontSize:20, color:"#C94435", textAlign:"center" }}>→</div>
+                        <div style={{ fontSize:10, color:"#aaa", textAlign:"center" }}>
+                          {item.vectorSame && !item.nsDirChanged ? "同向量" : "方向/向量改變"}
+                        </div>
+                        <div style={{ fontSize:10, padding:"2px 8px", borderRadius:10, background: item.nsDirChanged ? (item.nsDiff > 0 ? "#FDEDEC" : "#EBF5FB") : "#F2F3F4", color: item.nsDirChanged ? (item.nsDiff > 0 ? "#C0392B" : "#1A5276") : "#999", textAlign:"center" }}>
+                          {item.nsDirChanged ? (item.nsDiff > 0 ? "方向改變（趨溫）" : "方向改變（趨寒）") : "寒熱不變"}
+                        </div>
+                      </div>
+
+                      {/* 右卡 */}
+                      {(() => {
+                        const isNeutral = item.targetNs.includes("寒熱接近");
+                        const isWarm = item.targetNs.includes("溫");
+                        const isCold = item.targetNs.includes("寒");
+                        const nsEmoji = isNeutral ? "❄️🔥" : isWarm ? "🔥" : isCold ? "❄️" : "❄️🔥";
+                        const nsBg = isNeutral ? "#FFFDE7" : isWarm ? "#FDEDEC" : isCold ? "#EBF5FB" : "#FFFDE7";
+                        const nsColor = isNeutral ? "#666" : isWarm ? "#C0392B" : isCold ? "#1A5276" : "#666";
+                        return (
+                        <div style={{ flex:"0 0 auto", background: item.vectorSame ? "#fff" : "#FFF8E8", border:"2px solid " + (item.vectorSame ? "#ddd" : "#D4A017"), borderRadius:10, padding:"10px 14px", minWidth:160, textAlign:"center" }}>
+                          <div style={{ fontSize:11, color:"#888", marginBottom:4 }}>{item.targetName}</div>
+                          <div style={{ fontSize:13, fontWeight:700, color: item.vectorSame ? "#333" : "#D4A017", marginBottom:4 }}>{item.targetVec !== "氣化平調" ? item.targetVec : null}</div>
+                          <div style={{ fontSize:11, color:"#888" }}>{item.targetPath}</div>
+                          <div style={{ marginTop:6, padding:"3px 8px", borderRadius:6, fontSize:11, display:"inline-block", background: nsBg, color: nsColor }}>
+                            {nsEmoji} {item.targetNs}
+                          </div>
+                        </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* 分組變化報告 */}
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, fontSize:12 }}>
+                      {/* 藥物增減 */}
+                      <div style={{ background:"#fff", borderRadius:8, padding:"10px 12px", border:"1px solid #eee" }}>
+                        <div style={{ fontWeight:700, color:"#C94435", marginBottom:6, fontSize:11 }}>💊 藥物增減</div>
+                        {item.added.length > 0 && <div style={{ color:"#27AE60", marginBottom:3 }}>➕ {item.added.join("、")}</div>}
+                        {item.removed.length > 0 && <div style={{ color:"#C0392B", marginBottom:3 }}>➖ {item.removed.join("、")}</div>}
+                        {item.added.length === 0 && item.removed.length === 0 && <div style={{ color:"#888" }}>組成不變</div>}
+                      </div>
+
+                      {/* 劑量調整 */}
+                      <div style={{ background:"#fff", borderRadius:8, padding:"10px 12px", border:"1px solid #eee" }}>
+                        <div style={{ fontWeight:700, color:"#C94435", marginBottom:6, fontSize:11 }}>⚖️ 劑量調整</div>
+                        {item.doseAdjusted.length > 0
+                          ? item.doseAdjusted.slice(0,3).map(d => (
+                              <div key={d.n} style={{ color:"#555", marginBottom:2 }}>
+                                {d.n}：{formatNum(d.baseW)}→{formatNum(d.targetW)}兩
+                                <span style={{ color: d.diff > 0 ? "#27AE60" : "#C0392B", fontSize:10 }}>
+                                  ({d.diff > 0 ? "+" : ""}{formatNum(d.diff)})
+                                </span>
+                              </div>
+                            ))
+                          : item.doseUnchanged.length > 0
+                            ? <div style={{ color:"#888", fontSize:11, lineHeight:1.6 }}>劑量不變：{item.doseUnchanged.slice(0,4).join("、")}{item.doseUnchanged.length > 4 ? "..." : ""}</div>
+                            : <div style={{ color:"#888", fontSize:11 }}>無共同藥物</div>}
+                      </div>
+
+                      {/* 五味變化（全寬） */}
+                      <div style={{ gridColumn:"1 / -1", background:"#fff", borderRadius:8, padding:"10px 12px", border:"1px solid #eee" }}>
+                        <div style={{ fontWeight:700, color:"#C94435", marginBottom:6, fontSize:11 }}>🔥 五味位移</div>
+                        {item.flavorDeltas.length > 0
+                          ? <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                              {item.flavorDeltas.map(d => (
+                                <span key={d.f} style={{ padding:"2px 10px", borderRadius:20, fontSize:12, background: d.diff > 0 ? "#FDEDEC" : "#EBF5FB", color: d.diff > 0 ? "#C0392B" : "#1A5276" }}>
+                                  {d.f} {d.diff > 0 ? "↑" : "↓"}{formatNum(Math.abs(d.diff))}%
+                                </span>
+                              ))}
+                            </div>
+                          : <div style={{ color:"#888" }}>五味比例接近</div>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Herb comparison table */}
+          <div style={{ background:"#fff", borderRadius:12, padding:20, border:"1px solid #eee", marginBottom:16 }}>
+            <div style={{ fontSize:12, color:"#888", marginBottom:12 }}>藥物組成比較</div>
+            {shared.length > 0 && (
+              <div style={{ marginBottom:12 }}>
+                <div style={{ fontSize:11, color:"#3A8F5C", fontWeight:600, marginBottom:6 }}>共同藥物（{shared.length}味）</div>
+                <table style={{ width:"100%", fontSize:12, borderCollapse:"collapse" }}>
+                  <thead><tr style={{ borderBottom:"2px solid #eee" }}>
+                    <th style={{ textAlign:"left", padding:"6px 8px", color:"#888" }}>藥物</th>
+                    {items.map(fm => <th key={fm.n} style={{ textAlign:"center", padding:"6px 8px", color:"#888" }}>{fm.n}</th>)}
+                  </tr></thead>
+                  <tbody>{shared.map(h => (
+                    <tr key={h} style={{ borderBottom:"1px solid #f5f5f5" }}>
+                      <td style={{ padding:"6px 8px", fontWeight:600 }}>{h}</td>
+                      {items.map(fm => {
+                        const herb = fm.hd.find(x => x.n === h);
+                        return <td key={fm.n} style={{ textAlign:"center", padding:"6px 8px" }}>{herb ? herb.w + "兩" : "-"}</td>;
+                      })}
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
+            {items.map(fm => unique[fm.n].length > 0 && (
+              <div key={fm.n} style={{ marginBottom:8 }}>
+                <div style={{ fontSize:11, color:"#C94435", fontWeight:600, marginBottom:4 }}>{fm.n} 獨有（{unique[fm.n].length}味）</div>
+                <div style={{ fontSize:12, color:"#666" }}>{unique[fm.n].map(h => { const herb = fm.hd.find(x=>x.n===h); return herb ? `${h}(${herb.w}兩)` : h; }).join("、")}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+function HerbDBPage() {
+  const [search, setSearch] = useState("");
+  const [selectedHerb, setSelectedHerb] = useState(null);
+
+  const herbs = HERB_DATABASE;
+  const herbList = Object.keys(herbs).sort();
+
+  const filtered = search.trim()
+    ? herbList.filter(n => n.includes(search.trim()) || herbs[n].作用.includes(search))
+    : herbList;
+
+  const FLAVOR_COLORS_H = {
+    "寒": "#5B8FB9", "涼": "#7BAFD4", "平": "#8FBC8F", "溫": "#E8A87C", "熱": "#D9534F",
+    "甘": "#D4A017", "辛": "#A0A0A0", "苦": "#C94435", "酸": "#3A8F5C", "鹹": "#34495E",
+    "淡": "#90A4AE"
+  };
+
+  return (
+    <div style={{ padding:"20px 24px", maxWidth:1100, margin:"0 auto" }}>
+      {/* Search */}
+      <div style={{ marginBottom:20 }}>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="搜尋藥物名稱或功效..."
+          style={{
+            width:"100%", padding:"12px 16px", fontSize:15, border:"1.5px solid #d0ccc6",
+            borderRadius:10, outline:"none", background:"#fff", color:"#333"
+          }}
+        />
+      </div>
+
+      <div style={{ display:"flex", gap:20, alignItems:"flex-start" }}>
+        {/* List */}
+        <div style={{
+          width:260, maxHeight:"calc(100vh - 200px)", overflowY:"auto",
+          background:"#fff", borderRadius:12, border:"1px solid #e0dcd8",
+          boxShadow:"0 2px 8px rgba(0,0,0,0.06)"
+        }}>
+          {filtered.map(name => (
+            <div
+              key={name}
+              onClick={() => setSelectedHerb(name)}
+              style={{
+                padding:"10px 16px", cursor:"pointer",
+                borderBottom:"1px solid #f0eeeb",
+                background: selectedHerb === name ? "#f0f7ff" : "transparent",
+                color: selectedHerb === name ? "#1a5a8a" : "#333",
+                fontWeight: selectedHerb === name ? 600 : 400,
+                fontSize:14, transition:"all 0.15s"
+              }}
+              onMouseEnter={e => { if(selectedHerb !== name) e.target.style.background = "#f9f8f6"; }}
+              onMouseLeave={e => { if(selectedHerb !== name) e.target.style.background = "transparent"; }}
+            >
+              {name}
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div style={{ padding:20, color:"#999", textAlign:"center", fontSize:13 }}>
+              無符合的藥物
+            </div>
+          )}
+        </div>
+
+        {/* Detail */}
+        {selectedHerb ? (() => {
+          const h = herbs[selectedHerb];
+          return (
+            <div style={{
+              flex:1, background:"#fff", borderRadius:12, border:"1px solid #e0dcd8",
+              padding:"28px 32px", boxShadow:"0 2px 8px rgba(0,0,0,0.06)"
+            }}>
+              <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:24 }}>
+                <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                  <div style={{
+                    background:"linear-gradient(135deg, #1a1a2e, #0f3460)",
+                    color:"#fff", borderRadius:12, padding:"10px 20px", fontSize:20, fontWeight:700
+                  }}>
+                    {selectedHerb}
+                  </div>
+                  {herbs[selectedHerb].本草經名 && herbs[selectedHerb].本草經名 !== selectedHerb && (
+                    <div style={{
+                      fontSize:12, color:"#888", padding:"0 4px", letterSpacing:1
+                    }}>
+                      《神農本草經》作：{herbs[selectedHerb].本草經名}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 四氣五味 */}
+              <div style={{ display:"flex", gap:16, marginBottom:20 }}>
+                <div style={{
+                  flex:1, background:"#f8f6f1", borderRadius:10, padding:"16px 20px",
+                  borderLeft:"4px solid #1a1a2e"
+                }}>
+                  <div style={{ fontSize:12, color:"#888", marginBottom:6, letterSpacing:1 }}>四氣</div>
+                  <div style={{ fontSize:22, fontWeight:700, color:"#1a1a2e" }}>{h.四氣}</div>
+                </div>
+                <div style={{
+                  flex:1, background:"#f8f6f1", borderRadius:10, padding:"16px 20px",
+                  borderLeft:"4px solid #c94435"
+                }}>
+                  <div style={{ fontSize:12, color:"#888", marginBottom:6, letterSpacing:1 }}>五味</div>
+                  <div style={{ fontSize:22, fontWeight:700, color:"#c94435" }}>{h.五味}</div>
+                </div>
+              </div>
+
+              {/* 歸經 */}
+              <div style={{ marginBottom:20 }}>
+                <div style={{ fontSize:12, color:"#888", marginBottom:8, letterSpacing:1 }}>歸經</div>
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                  {h.歸經.length === 0
+                    ? <span style={{ color:"#bbb", fontStyle:"italic" }}>無記載</span>
+                    : h.歸經.map(j => (
+                      <span key={j} style={{
+                        background:"#e8f4e8", color:"#2e7d32",
+                        padding:"4px 12px", borderRadius:20, fontSize:13, fontWeight:600
+                      }}>{j}</span>
+                    ))
+                  }
+                </div>
+              </div>
+
+              {/* 作用 */}
+              <div style={{ marginBottom:20 }}>
+                <div style={{ fontSize:12, color:"#888", marginBottom:8, letterSpacing:1 }}>作用</div>
+                <div style={{
+                  background:"#faf8f5", borderRadius:10, padding:"14px 18px",
+                  fontSize:15, color:"#444", lineHeight:1.8, border:"1px solid #e8e4dc"
+                }}>
+                  {h.作用}
+                </div>
+              </div>
+
+              {/* Flavor pills */}
+              <div>
+                <div style={{ fontSize:12, color:"#888", marginBottom:8, letterSpacing:1 }}>五味視覺</div>
+                <div style={{ display:"flex", gap:8 }}>
+                  {h.五味.split("、").map(f => {
+                    const color = FLAVOR_COLORS_H[f] || "#888";
+                    return (
+                      <span key={f} style={{
+                        background:color, color:"#fff",
+                        padding:"4px 12px", borderRadius:20, fontSize:13
+                      }}>{f}</span>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* 按 說明 */}
+              {h.按 && (
+                <div style={{ marginTop:16, padding:"12px 16px", background:"#f8f5ef",
+                  borderRadius:8, border:"1px solid #e0d8c8", fontSize:12, color:"#666",
+                  lineHeight:1.8, fontStyle:"italic" }}>
+                  【按】{h.按}
+                </div>
+              )}
+            </div>
+          );
+        })() : (
+          <div style={{
+            flex:1, background:"#fff", borderRadius:12, border:"1px solid #e0dcd8",
+            padding:"60px 40px", textAlign:"center", color:"#bbb", fontSize:15
+          }}>
+            請選擇左側藥物查詢性味、歸經與作用
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+function QuizPage({ favs }) {
+  const browserStorage = createBrowserStorageAdapter(window.localStorage);
+  const wrongBookStore = createWrongBookStore(browserStorage);
+  const [mode, setMode] = useState(null);
+  const [scope, setScope] = useState("all");
+  const [q, setQ] = useState(null);
+  const [chosen, setChosen] = useState(null);
+  const [score, setScore] = useState({ total:0, correct:0 });
+  const [history, setHistory] = useState([]);
+  const [questionCount, setQuestionCount] = useState(10);
+  const [quizStarted, setQuizStarted] = useState(false);
+  const [quizFinished, setQuizFinished] = useState(false);
+  const [reviewWrongOnly, setReviewWrongOnly] = useState(false);
+  const [reviewTotal, setReviewTotal] = useState(0);
+  const [wrongBook, setWrongBook] = useState(() => wrongBookStore.load());
+
+  const pool = useMemo(() => {
+    if (scope === "fav") return DATA.filter(d => favs.includes(d.n));
+    if (scope !== "all") return DATA.filter(d => d.c === scope);
+    return DATA;
+  }, [scope, favs]);
+
+  const saveWrongBook = (next) => {
+    setWrongBook(next);
+    try { wrongBookStore.save(next); } catch(e) {}
+  };
+  const resetQuizState = () => {
+    setQ(null);
+    setChosen(null);
+    setScore({total:0,correct:0});
+    setHistory([]);
+    setQuizStarted(false);
+    setQuizFinished(false);
+    setReviewTotal(0);
+  };
+  const reviewPool = useMemo(() => {
+    if (!reviewWrongOnly) return [];
+    return wrongBook;
+  }, [reviewWrongOnly, wrongBook]);
+
+  const genQuestion = () => {
+    if (quizFinished || score.total >= questionCount) {
+      setQuizFinished(true);
+      setQ(null);
+      return;
+    }
+    if (reviewWrongOnly) {
+      if (reviewPool.length === 0) {
+        if (!quizStarted) alert("目前沒有錯題可複習");
+        else setQuizFinished(true);
+        setQ(null);
+        return;
+      }
+      setQuizStarted(true);
+      if (!quizStarted) setReviewTotal(reviewPool.length);
+      setChosen(null);
+      const reviewQ = reviewPool[Math.floor(Math.random() * reviewPool.length)];
+      setQ({ ...reviewQ, review: true });
+      return;
+    }
+    if (pool.length < 4) { alert("方劑數量不足，請擴大範圍"); return; }
+    setQuizStarted(true);
+    setChosen(null);
+    const nextQuestion = createQuizQuestion({ data: DATA, mode, scope, favorites: favs });
+    if (nextQuestion.error) { alert(nextQuestion.error); return; }
+    setQ(nextQuestion);
+  };
+
+  const handleAnswer = (idx) => {
+    if (chosen !== null) return;
+    setChosen(idx);
+    const isCorrect = idx === q.answer;
+    const wrongEntry = buildWrongEntry(q);
+    setScore(s => {
+      const next = { total: s.total + 1, correct: s.correct + (isCorrect ? 1 : 0) };
+      if (next.total >= questionCount) setQuizFinished(true);
+      return next;
+    });
+    setHistory(h => [...h, { q: q.question.slice(0, 30), correct: isCorrect, formula: q.formulaName }]);
+    if (isCorrect) {
+      if (q.review) saveWrongBook(wrongBook.filter(item => item.key !== q.key));
+    } else {
+      if (!wrongBook.some(item => item.key === wrongEntry.key)) {
+        saveWrongBook([...wrongBook, wrongEntry]);
+      }
+    }
+  };
+
+  if (!mode && !reviewWrongOnly) return (
+    <div style={{ padding:"20px 24px", maxWidth:700, margin:"0 auto" }}>
+      <div style={{ fontSize:13, color:"#888", marginBottom:12 }}>選擇題型</div>
+      <div style={{ position:"relative", marginBottom:20 }}>
+      <div style={{
+        display:"grid", gridTemplateColumns:"1fr 1fr", gap:12,
+        opacity: reviewWrongOnly ? 0.45 : 1,
+        pointerEvents: reviewWrongOnly ? "none" : "auto",
+        filter: reviewWrongOnly ? "grayscale(0.2)" : "none",
+      }}>
+        {[
+          ["random","隨機題型","每題隨機抽一種測驗方式","綜合"],
+          ["f2h","方→藥","看方名，選出正確的藥物組成","基礎"],
+          ["h2f","藥→方","看藥物組成，辨認方名","基礎"],
+          ["clause","條文→方","讀條文，判斷用什麼方","進階"],
+        ].map(([k,title,desc,level]) => (
+          <div key={k} onClick={() => setMode(k)} style={{
+            background:"#fff", borderRadius:12, padding:20, border:"1px solid #eee", cursor:"pointer",
+            transition:"all 0.15s", ":hover":{ borderColor:"#C94435" }
+          }}>
+            <div style={{ fontSize:16, fontWeight:700, marginBottom:4 }}>{title}</div>
+            <div style={{ fontSize:12, color:"#888", marginBottom:8 }}>{desc}</div>
+            <span style={{ fontSize:10, padding:"2px 8px", borderRadius:10, background:"#f5f3f0", color:"#888" }}>{level}</span>
+          </div>
+        ))}
+      </div>
+      {wrongBook.length > 0 && !reviewWrongOnly && (
+        <div style={{ marginTop:12 }}>
+          <div
+            onClick={() => { resetQuizState(); setReviewWrongOnly(true); setMode("review"); }}
+            style={{
+              background:"#fff", borderRadius:12, padding:20, border:"1px solid #eee", cursor:"pointer",
+              transition:"all 0.15s"
+            }}
+          >
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
+              <div>
+                <div style={{ fontSize:16, fontWeight:700, marginBottom:4 }}>複習錯題</div>
+                <div style={{ fontSize:12, color:"#888" }}>依原題型重新練習先前答錯的題目</div>
+              </div>
+              <span style={{
+                fontSize:11, padding:"4px 10px", borderRadius:999, background:"#f5f3f0", color:"#666", fontWeight:600
+              }}>{wrongBook.length} 題</span>
+            </div>
+          </div>
+        </div>
+      )}
+      {reviewWrongOnly && (
+        <div style={{
+          position:"absolute", right:0, top:-28, fontSize:12, color:"#888",
+          background:"#F7F5F2", padding:"2px 8px", borderRadius:12, border:"1px solid #e5e0d8"
+        }}>
+          錯題複習會依原題型出題
+        </div>
+      )}
+      </div>
+      <div style={{ fontSize:13, color:"#888", marginBottom:8 }}>範圍設定</div>
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+        {[["all","全部"],["fav","僅收藏"],...CATEGORIES.slice(1).map(c=>[c,c])].map(([k,label]) => (
+          <button key={k} onClick={() => setScope(k)} style={{
+            padding:"4px 12px", borderRadius:16, border:"1px solid #ddd", cursor:"pointer", fontSize:12,
+            background: scope===k ? "#2c3e50" : "#fff", color: scope===k ? "#fff" : "#555"
+          }}>{label}</button>
+        ))}
+      </div>
+      <div style={{ fontSize:13, color:"#888", margin:"16px 0 8px" }}>題數設定</div>
+      <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
+        {[5,10,20,30].map(n => (
+          <button key={n} onClick={() => setQuestionCount(n)} style={{
+            padding:"4px 12px", borderRadius:16, border:"1px solid #ddd", cursor:"pointer", fontSize:12,
+            background: questionCount===n ? "#2c3e50" : "#fff", color: questionCount===n ? "#fff" : "#555"
+          }}>{n} 題</button>
+        ))}
+        <label style={{ fontSize:12, color:"#666", display:"flex", alignItems:"center", gap:6 }}>
+          自訂
+          <input
+            type="number"
+            min="1"
+            max="100"
+            value={questionCount}
+            onChange={e => {
+              const next = Number(e.target.value);
+              if (!Number.isFinite(next)) return;
+              setQuestionCount(Math.max(1, Math.min(100, next)));
+            }}
+            style={{ width:72, padding:"4px 8px", borderRadius:8, border:"1px solid #ddd", fontSize:12 }}
+          />
+          題
+        </label>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ padding:"20px 24px", maxWidth:700, margin:"0 auto" }}>
+      {/* Header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+        <button onClick={() => { setMode(null); setReviewWrongOnly(false); resetQuizState(); }}
+          style={{ background:"none", border:"none", cursor:"pointer", fontSize:14, color:"#888" }}>← 返回選題</button>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          {reviewWrongOnly && wrongBook.length > 0 && (
+            <button
+              onClick={() => {
+                if (confirm("確定要清空全部錯題嗎？")) {
+                  saveWrongBook([]);
+                  setMode(null);
+                  setReviewWrongOnly(false);
+                  resetQuizState();
+                }
+              }}
+              style={{
+                padding:"6px 12px", borderRadius:16, border:"1px solid #e2b8b8", cursor:"pointer",
+                fontSize:12, background:"#fff", color:"#C62828"
+              }}
+            >清空錯題本</button>
+          )}
+          <div style={{ fontSize:13, color:"#888" }}>
+            {score.total > 0 && <span>{score.correct}/{score.total} 正確率 {Math.round(score.correct/score.total*100)}%</span>}
+          </div>
+        </div>
+      </div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, fontSize:13, color:"#777", flexWrap:"wrap", gap:8 }}>
+        <span>{reviewWrongOnly ? `錯題複習，本輪共 ${reviewTotal || reviewPool.length} 題` : `本次設定 ${questionCount} 題`}</span>
+        <span>進度 {Math.min(score.total + (q && chosen === null ? 1 : 0), reviewWrongOnly ? (reviewTotal || reviewPool.length || questionCount) : questionCount)} / {reviewWrongOnly ? (reviewTotal || reviewPool.length || questionCount) : questionCount}</span>
+      </div>
+
+      {!quizStarted ? (
+        <div style={{ textAlign:"center", padding:40 }}>
+          <button onClick={genQuestion} style={{
+            padding:"14px 40px", borderRadius:12, border:"none", cursor:"pointer",
+            background:"linear-gradient(135deg, #1a1a2e, #0f3460)", color:"#fff",
+            fontSize:16, fontWeight:700, letterSpacing:2
+          }}>{reviewWrongOnly ? "開始複習" : "開始測驗"}</button>
+        </div>
+      ) : quizFinished ? (
+        <div style={{ background:"#fff", borderRadius:12, padding:28, border:"1px solid #eee", textAlign:"center", marginBottom:16 }}>
+          <div style={{ fontSize:22, fontWeight:700, marginBottom:10 }}>測驗完成</div>
+          <div style={{ fontSize:15, color:"#555", marginBottom:8 }}>共 {questionCount} 題，答對 {score.correct} 題</div>
+          <div style={{ fontSize:14, color:"#888", marginBottom:18 }}>正確率 {questionCount > 0 ? Math.round(score.correct / questionCount * 100) : 0}%</div>
+          <button onClick={resetQuizState}
+            style={{
+              padding:"10px 24px", borderRadius:8, border:"none", cursor:"pointer",
+              background:"#2c3e50", color:"#fff", fontSize:14, fontWeight:600
+            }}>重新測驗</button>
+        </div>
+      ) : (
+        <div>
+          {/* Question */}
+          <div style={{ background:"#fff", borderRadius:12, padding:24, border:"1px solid #eee", marginBottom:16 }}>
+            <div style={{ fontSize:15, lineHeight:1.8, whiteSpace:"pre-wrap" }}>{q.question}</div>
+          </div>
+
+          {/* Options */}
+          <div style={{ display:"grid", gap:10, marginBottom:16 }}>
+            {q.options.map((opt, i) => {
+              const isAnswer = i === q.answer;
+              const isChosen = i === chosen;
+              let bg = "#fff", border = "1px solid #eee", color = "#333";
+              if (chosen !== null) {
+                if (isAnswer) { bg = "#E8F5E9"; border = "2px solid #4CAF50"; color = "#2E7D32"; }
+                else if (isChosen) { bg = "#FFEBEE"; border = "2px solid #E53935"; color = "#C62828"; }
+              }
+              return (
+                <div key={i} onClick={() => handleAnswer(i)} style={{
+                  padding:"14px 18px", borderRadius:10, background: bg, border,
+                  cursor: chosen === null ? "pointer" : "default", fontSize:14, lineHeight:1.6, color,
+                  transition:"all 0.15s"
+                }}>
+                  <span style={{ fontWeight:600, marginRight:8, color:"#aaa" }}>{String.fromCharCode(65+i)}.</span>
+                  {opt}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Feedback */}
+          {chosen !== null && (
+            <div style={{ textAlign:"center", marginBottom:16 }}>
+              <div style={{ fontSize:20, marginBottom:12 }}>
+                {chosen === q.answer ? "✓ 正確！" : `✗ 答案是 ${String.fromCharCode(65+q.answer)}`}
+              </div>
+              {!reviewWrongOnly && chosen !== q.answer && (
+                <div style={{ fontSize:12, color:"#C62828", marginBottom:12 }}>
+                  這題已加入錯題本，可在「複習錯題」中重做
+                </div>
+              )}
+              {reviewWrongOnly && chosen === q.answer && (
+                <div style={{ fontSize:12, color:"#2E7D32", marginBottom:12 }}>
+                  這題已從錯題本移除
+                </div>
+              )}
+              <button onClick={genQuestion} style={{
+                padding:"10px 30px", borderRadius:8, border:"none", cursor:"pointer",
+                background:"#2c3e50", color:"#fff", fontSize:14, fontWeight:600
+              }}>{score.total >= questionCount ? "查看結果" : "下一題"}</button>
+            </div>
+          )}
+
+          {/* History */}
+          {history.length > 0 && (
+            <div style={{ background:"#fff", borderRadius:12, padding:16, border:"1px solid #eee", marginTop:16 }}>
+              <div style={{ fontSize:12, color:"#888", marginBottom:8 }}>作答紀錄</div>
+              {history.slice(-10).reverse().map((h,i) => (
+                <div key={i} style={{ fontSize:12, padding:"4px 0", color: h.correct ? "#4CAF50" : "#E53935" }}>
+                  {h.correct ? "✓" : "✗"} {h.formula} — {h.q}...
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function App() {
+  const browserStorage = createBrowserStorageAdapter(window.localStorage);
+  const favoritesStore = createFavoritesStore(browserStorage);
+  const [cat, setCat] = useState("全部");
+  const [tend, setTend] = useState("全部");
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [compare, setCompare] = useState(null);
+  const [view, setView] = useState("list");
+  const [page, setPage] = useState("analysis");
+  const [favs, setFavs] = useState(() => favoritesStore.load());
+  const [compareList, setCompareList] = useState([]);
+  const [showFavOnly, setShowFavOnly] = useState(false);
+
+  const toggleFav = (name) => {
+    setFavs(prev => {
+      const next = prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name];
+      try { favoritesStore.save(next); } catch(e) {}
+      return next;
+    });
+  };
+
+  const addToCompare = (name) => {
+    let result = "added";
+    setCompareList(prev => {
+      if (prev.includes(name)) {
+        result = "exists";
+        return prev;
+      }
+      if (prev.length >= COMPARE_LIMIT) {
+        result = "full";
+        return prev;
+      }
+      return [...prev, name];
+    });
+    return result;
+  };
+
+  const filtered = useMemo(() => {
+    return DATA.filter(d => {
+      if (cat !== "全部" && d.c !== cat) return false;
+      if (tend !== "全部" && d.nt !== tend) return false;
+      if (showFavOnly && !favs.includes(d.n)) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        if (!d.n.includes(q) && !d.hd.some(h => h.n.includes(q))) return false;
+      }
+      return true;
+    });
+  }, [cat, tend, search, showFavOnly, favs]);
+
+  return (
+    <div style={{ fontFamily:"'Noto Sans TC', 'Hiragino Sans', sans-serif", background:"#F7F5F2", minHeight:"100vh" }}>
+      {/* Header */}
+      <div style={{ background:"linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)", color:"#fff", padding:"32px 24px 24px" }}>
+        <h1 style={{ margin:0, fontSize:26, fontWeight:800, fontFamily:"'Noto Serif TC', serif", letterSpacing:2 }}>
+          傷寒論方劑性味分析
+        </h1>
+        <p style={{ margin:"8px 0 0", fontSize:13, opacity:0.65, lineHeight:1.8 }}>
+          以《神農本草經》五味四氣數據為基礎，結合藥物用量加權計算，對趙開美翻刻宋本《傷寒論》{DATA.length} 首方劑進行性味結構量化分析。每首方劑附有組成原文、煎服法、宋本、桂林古本、康治本三版本條文異文比較，以及各藥物之《神農本草經》原文對照。
+        </p>
+        <div style={{ display:"flex", gap:4, marginTop:16, flexWrap:"wrap" }}>
+          {[["analysis","方劑分析"],["compare","方劑比較"],["quiz","方劑測驗"],["herb","藥物資料庫"],["about","網站說明"],["author","關於作者"]].map(([k,label]) => (
+            <button key={k} onClick={() => setPage(k)} style={{
+              padding:"8px 20px", borderRadius:"8px 8px 0 0", border:"none", cursor:"pointer",
+              fontSize:14, fontWeight:600, letterSpacing:1,
+              background: page===k ? "#F7F5F2" : "rgba(255,255,255,0.12)",
+              color: page===k ? "#1a1a2e" : "rgba(255,255,255,0.7)",
+              transition:"all 0.2s"
+            }}>{label}</button>
+          ))}
+        </div>
+      </div>
+
+      {page === "herb" ? <HerbDBPage /> : page === "about" ? <AboutPage /> : page === "author" ? <AuthorPage /> : page === "compare" ? <ComparePage compareList={compareList} setCompareList={setCompareList} /> : page === "quiz" ? <QuizPage favs={favs} /> : (
+      <div style={{ padding:"20px 24px", maxWidth:960, margin:"0 auto" }}>
+        <OverviewStats data={filtered} />
+
+        {/* Filters */}
+        <div style={{ background:"#fff", borderRadius:12, padding:16, marginBottom:16, border:"1px solid #eee" }}>
+          <div style={{ display:"flex", gap:12, flexWrap:"wrap", alignItems:"center", marginBottom:12 }}>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋方劑或藥物..."
+              style={{ flex:1, minWidth:180, padding:"8px 14px", borderRadius:8, border:"1px solid #ddd", fontSize:14, outline:"none" }} />
+            <button onClick={() => setShowFavOnly(!showFavOnly)} style={{
+              padding:"6px 14px", borderRadius:6, border:"1px solid #ddd", cursor:"pointer",
+              background: showFavOnly ? "#D4A017" : "#fff", color: showFavOnly ? "#fff" : "#888", fontSize:13, fontWeight:600
+            }}>{showFavOnly ? `★ ${favs.length}` : "★ 收藏"}</button>
+            <div style={{ display:"flex", gap:4 }}>
+              <button onClick={() => setView("list")} style={{
+                padding:"6px 14px", borderRadius:6, border:"1px solid #ddd", cursor:"pointer",
+                background: view==="list" ? "#2c3e50" : "#fff", color: view==="list" ? "#fff" : "#333", fontSize:13, fontWeight:600
+              }}>列表</button>
+              <button onClick={() => setView("scatter")} style={{
+                padding:"6px 14px", borderRadius:6, border:"1px solid #ddd", cursor:"pointer",
+                background: view==="scatter" ? "#2c3e50" : "#fff", color: view==="scatter" ? "#fff" : "#333", fontSize:13, fontWeight:600
+              }}>散佈圖</button>
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:8 }}>
+            <span style={{ fontSize:12, color:"#888", lineHeight:"28px" }}>六經：</span>
+            {CATEGORIES.map(c => (
+              <button key={c} onClick={() => setCat(c)} style={{
+                padding:"4px 12px", borderRadius:16, border:"1px solid #ddd", cursor:"pointer", fontSize:12,
+                background: cat===c ? "#2c3e50" : "#fff", color: cat===c ? "#fff" : "#555", fontWeight: cat===c ? 600 : 400
+              }}>{c}</button>
+            ))}
+          </div>
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+            <span style={{ fontSize:12, color:"#888", lineHeight:"28px" }}>偏性：</span>
+            {TENDENCIES.map(t => (
+              <button key={t} onClick={() => setTend(t)} style={{
+                padding:"4px 12px", borderRadius:16, border:"1px solid #ddd", cursor:"pointer", fontSize:12,
+                background: tend===t ? (TENDENCY_COLORS[t]||"#2c3e50") : "#fff",
+                color: tend===t ? "#fff" : "#555", fontWeight: tend===t ? 600 : 400
+              }}>{t}</button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ fontSize:12, color:"#888", marginBottom:8 }}>
+          共 {filtered.length} 首方劑
+        </div>
+
+        {/* Content */}
+        {view === "scatter" ? (
+          <div style={{ background:"#fff", borderRadius:12, padding:16, border:"1px solid #eee", marginBottom:16 }}>
+            <div style={{ display:"flex", gap:12, marginBottom:10, justifyContent:"center", flexWrap:"wrap" }}>
+              {FLAVORS.map(f => (
+                <span key={f} style={{ display:"flex", alignItems:"center", gap:4, fontSize:11 }}>
+                  <span style={{ width:10, height:10, borderRadius:"50%", background:FLAVOR_COLORS[f], display:"inline-block" }} />
+                  {f}
+                </span>
+              ))}
+            </div>
+            <ScatterPlot data={filtered} selected={selected} onSelect={setSelected} />
+          </div>
+        ) : null}
+
+        {selected ? (
+          <DetailPanel selected={selected} compare={compare} setCompare={setCompare}
+            isFav={favs.includes(selected.n)} onToggleFav={toggleFav}
+            onAddCompare={addToCompare}
+            compareList={compareList}
+            compareLimit={COMPARE_LIMIT}
+            onClose={() => setSelected(null)}
+            filteredList={filtered}
+            onNavigate={setSelected} />
+        ) : (
+        <div style={{ display:"flex", gap:16, flexDirection: view === "list" ? "row" : "column" }}>
+          {/* Formula List */}
+          <div style={{
+            background:"#fff", borderRadius:12, border:"1px solid #eee", overflow:"hidden",
+            width: "100%",
+            maxHeight: view === "list" ? 600 : "none", overflowY:"auto",
+          }}>
+            {filtered.map(f => (
+              <FormulaCard key={f.n} formula={f} selected={false}
+                isFav={favs.includes(f.n)} onToggleFav={toggleFav}
+                onClick={() => setSelected(f)} />
+            ))}
+            {filtered.length === 0 && (
+              <div style={{ padding:40, textAlign:"center", color:"#aaa" }}>無符合條件的方劑</div>
+            )}
+          </div>
+        </div>
+        )}
+
+        {/* Footer */}
+        <div style={{ textAlign:"center", padding:"24px 0", fontSize:11, color:"#bbb", lineHeight:1.8 }}>
+          © 2026 吳啓銘 中醫博士　　性味來源：《神農本草經》 · 方劑來源：趙開美翻刻宋本《傷寒論》
+        </div>
+      </div>
+      )}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(App));
+
+
+</script>
+</body>
+</html>
