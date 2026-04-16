@@ -1,6 +1,15 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
+  <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-QXD54VYQBC"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-QXD54VYQBC');
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>傷寒論方劑性味分析</title>
@@ -28,11 +37,157 @@
 </head>
 <body>
 <div id="root"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
-<script src="data.js"></script>
-<script src="core.browser.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js?v=20260416b"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js?v=20260416b"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js?v=20260416b"></script>
+<script src="herb_database.js?v=20260416b"></script>
+<script src="data.js?v=20260416b"></script>
+<script src="core.browser.js?v=20260416b"></script>
+<script>
+// ====== TCM QI-ENGINE v5.3.3 ======
+// 阿銘醫師設計：古典中醫氣化推導引擎 (Final Stable Edition)
+class TcmQiEngine {
+ constructor(formula) {
+  this.f = formula || {};
+  this.v = (formula && formula.fp) || {};
+  this.herbs = (formula && formula.hd) ? formula.hd.map(h => h.n) : [];
+  this.organs = (formula && formula.hd)
+   ? formula.hd.flatMap(h => h.jg || [])
+   : [];
+  this.finalVectorOverride = null;
+  this.CONFIG = {
+   SIGNIFICANT_BIT: 15,
+   P4_RATIO_THRESHOLD: 40
+  };
+ }
+
+ // ── 表面向量：門戶開闔 ──
+ getSurfaceVector() {
+  const { 辛 = 0, 酸 = 0, 苦 = 0 } = this.v;
+
+  // 【核心修正】君藥判定：只要有麻黃且無酸收（芍藥、五味子、烏梅）
+  const hasMaHuang = this.herbs.includes("麻黃");
+  const hasSourConstraint = this.herbs.some(h => ["芍藥", "五味子", "烏梅", "山茱萸"].includes(h));
+
+  if (hasMaHuang && !hasSourConstraint) {
+   return "PURE_EXPLOSION"; // 麻黃帶頭且無酸拉住，無視甘、苦，直接炸開
+  }
+
+  // 桂枝湯邏輯：有辛有酸(芍藥)，判定為解肌
+  if (this.herbs.includes("桂枝") && hasSourConstraint) {
+   return "RELEASE_WITH_HOLD";
+  }
+
+  // 原有保底邏輯...
+  if (辛 < 20) return "STABLE";
+  const holdBackPower = 酸 + (苦 * 0.5);
+  if (holdBackPower >= 辛 * 0.3) return "RELEASE_WITH_HOLD";
+  return "PURE_EXPLOSION";
+ }
+
+ // ── 病機判斷（核心層次） ──
+ getPathology() {
+  const { 苦 = 0, 辛 = 0, 鹹 = 0, 甘 = 0, 酸 = 0 } = this.v;
+  const ns = this.f.ns || 0;
+  const surface = this.getSurfaceVector();
+  let results = [];
+
+  // 【P0 厥陰重鎮】(優先級最高，解決烏梅丸)
+  if (酸 >= 50 && 辛 >= 15 && 苦 >= 10) {
+   this.finalVectorOverride = "【極致內斂】酸收重鎮，辛以入陰，苦以清降";
+   return ["厥陰寒熱錯雜 (酸收辛潤 / 蛔厥定驚)"];
+  }
+
+  // 【P0.5 少陰陽衰】(附子+腎，解決真武湯)
+  if (this.herbs.includes("附子") && this.organs.includes("腎")) {
+   this.finalVectorOverride = "【溫陽蒸騰】提振底火，化氣行水";
+   return ["少陰陽衰 (溫陽化氣 / 鎮水消腫)"];
+  }
+
+  // 【P1 陰質滋補】(地黃、甘草湯類)
+  if (甘 > 30 && this.organs.includes("心") && this.organs.includes("腎") && Math.abs(ns) < 0.5) {
+   this.finalVectorOverride = "【內斂滋濡】填補陰液，寧心定悸";
+   return ["陰血虧損 (滋陰養血 / 復脈定悸)"];
+  }
+
+  // 【P2 鹹苦攻下】(增加鹹味身分證)
+  if (苦 >= 15 && 鹹 >= 10 && this.organs.includes("大腸")) {
+   this.finalVectorOverride = "【向心沉降】盪滌實邪，通腑泄熱";
+   return ["熱結實邪 (盪滌積滯 / 苦寒通降)"];
+  }
+
+  // 【P2.1 重鎮降逆】(解決旋覆代赭湯)
+  if (this.herbs.some(h => ["代赭石", "旋覆花", "代赭"].includes(h))) {
+   this.finalVectorOverride = "【重鎮降逆】平衝降逆，化痰消痞";
+   return ["胃氣上逆 (濁氣不降 / 鎮逆理氣)"];
+  }
+
+  // 【P3 少陽樞紐】(柴胡+黃芩身分證，解決小柴胡)
+  if (this.herbs.includes("柴胡") && this.herbs.includes("黃芩") && this.organs.includes("膽")) {
+   this.finalVectorOverride = "【樞紐旋轉】和解少陽，宣通內外";
+   return ["少陽樞紐不利 (和解表裡 / 往來寒熱)"];
+  }
+
+  // 【P5 溫中復陽】(解決甘草乾薑湯/理中丸；排除瀉心湯)
+  const hasExpelHerb = this.herbs.some(h => ["麻黃", "桂枝", "葛根", "細辛"].includes(h));
+  const hasBitterCold = this.herbs.some(h => ["黃連", "黃芩"].includes(h));
+  if (辛 >= 20 && 甘 >= 30 && !hasExpelHerb && !hasBitterCold) {
+   this.finalVectorOverride = "【溫煦內斂】守中復陽，化氣生津";
+   return ["陽氣虛衰 (辛甘化陽 / 溫中復陽)"];
+  }
+
+ 
+
+  // 【P4 中焦樞紐】(修正門檻與排除邏輯)
+  if (苦 >= 15 && 辛 >= 15 && this.organs.includes("脾")) {
+   const hasSurfaceHerb = this.herbs.some(h => ["麻黃", "葛根", "桂枝"].includes(h));
+   const hasBitterHerb = this.herbs.some(h => ["黃連", "黃芩"].includes(h));
+   const hasAcridHerb = this.herbs.some(h => ["乾薑", "生薑", "半夏"].includes(h));
+   const isSunFocus = this.organs.filter(o => o === "膀胱").length > 2;
+
+   if (!hasSurfaceHerb && !isSunFocus && hasBitterHerb && hasAcridHerb) {
+    this.finalVectorOverride = "【中道旋轉】重建氣機樞紐，交通寒熱";
+    return ["中焦氣機痞塞 (寒熱錯雜 / 辛開苦降)"];
+   }
+  }
+
+
+  // 【P6 殘餘表/裡熱判定】
+  if (this.organs.some(o => ["肺", "膀胱"].includes(o))) {
+   if (surface === "PURE_EXPLOSION") {
+    this.finalVectorOverride = "【強力發散】強行開竅，透邪外出";
+    results.push("衛閉營鬱 (表實感)");
+   }
+   if (surface === "RELEASE_WITH_HOLD") {
+    this.finalVectorOverride = "【解肌舒脈】宣散而不傷陰";
+    results.push("營衛不和 / 經氣不舒");
+   }
+  }
+
+  // 陽明氣熱 (白虎湯類)
+  if (ns <= -1.0 && (this.organs.includes("胃") || this.organs.includes("肺"))) {
+   results.push("陽明氣熱 (清熱生津 / 辛寒清散)");
+  }
+
+  return results.length > 0 ? results : ["氣化平調"];
+ }
+
+ render() {
+  const path = this.getPathology();
+  const ns = this.f.ns || 0;
+  const finalVector = this.finalVectorOverride || "【氣化平調】";
+
+  return {
+   能量背景: ns >= 0.5 ? "助陽化氣" : (ns <= -0.5 ? "清熱涼血" : "致中和"),
+   空間向量: finalVector,
+   病機解析: path.join("；"),
+   作用靶點: [...new Set(this.organs)].join("、"),
+   qiSummary: `此方以【${ns >= 0.5 ? "助陽化氣" : (ns <= -0.5 ? "清熱涼血" : "致中和")}】為背景。呈現【${finalVector}】。旨在處理：${path.join("；")}之態勢。`
+  };
+ }
+}
+// ====== END TCM QI-ENGINE ======</script>
+
 <script type="text/babel">
 
 const {useState, useMemo, useEffect} = React;
@@ -168,6 +323,7 @@ function HerbPill({ herb, expanded, onToggle }) {
   const bg = herb.t === "溫" ? "#FDEBD0" : herb.t === "微溫" ? "#FEF5E7" :
     herb.t === "寒" ? "#D6EAF8" : herb.t === "微寒" ? "#EBF5FB" :
     herb.t === "小寒" ? "#EBF5FB" : herb.t === "涼" ? "#E8F8F5" : "#F2F3F4";
+  const herbBtLines = expanded && herb.bt ? herb.bt.split(/\\n|\n/) : [];
   return (
     <div style={{ display:"inline-block", margin:"2px 3px", verticalAlign:"top" }}>
       <span onClick={onToggle} style={{
@@ -184,13 +340,27 @@ function HerbPill({ herb, expanded, onToggle }) {
       </span>
       {expanded && herb.bt && (
         <div style={{
-          marginTop:4, padding:"10px 14px", borderRadius:8,
-          background:"#faf8f5", border:"1px solid #e8e4df",
-          fontSize:13, lineHeight:2, color:"#555", maxWidth:400,
+          marginTop:6, padding:"12px 14px", borderRadius:10,
+          background:"#faf8f5", border:"1px solid #e0d8c8",
+          fontSize:13, lineHeight:2, color:"#555", maxWidth:420,
+          boxShadow:"0 2px 8px rgba(0,0,0,0.06)"
         }}>
-          {herb.bt.split("\\n").map((part, i) => {
-            if (i === 0) return <div key={i}><span style={{ fontSize:10, color:"#999", fontWeight:600 }}>《神農本草經》</span><br/>{part}</div>;
-            return <div key={i} style={{ marginTop:8, padding:"8px 10px", borderRadius:6, background:"#f0ede8", fontSize:12, lineHeight:1.8, color:"#777" }}>{part}</div>;
+          {herbBtLines.map((part, i) => {
+            if (part.startsWith("※")) {
+              const anPart = part.replace("※", "");
+              return <div key={i} style={{
+                marginTop:10, padding:"10px 12px", borderRadius:6,
+                background:"#fff8e8", border:"1px solid #e0d0b8",
+                fontSize:12, lineHeight:1.8, color:"#8a6d3b", fontStyle:"italic"
+              }}>
+                <span style={{ fontWeight:700, fontStyle:"normal", color:"#7a5c2a" }}>【按】</span>{anPart}
+              </div>;
+            }
+            return <div key={i} style={{
+              marginTop:6, padding:"6px 10px", borderRadius:6,
+              background: i === 0 ? "transparent" : "#f0ede8",
+              fontSize:12, lineHeight:1.8, color: i === 0 ? "#555" : "#777"
+            }}>{part}</div>;
           })}
         </div>
       )}
@@ -346,7 +516,7 @@ function AboutPage() {
   return (
     <div style={{ padding:"20px 24px", maxWidth:800, margin:"0 auto" }}>
 
-      <Section title="一、研究目的">
+      <Section title="一、目的">
         <p>本研究以《神農本草經》記載的藥物性味（五味、四氣）為基礎數據，對趙開美翻刻宋本《傷寒論》中的方劑進行量化分析。透過將每味藥物的性味屬性乘以其在方劑中的用量（兩），計算出各方劑在五味（酸、苦、甘、辛、鹹）和四氣（寒、熱、溫、涼、平）上的加權分佈與整體偏性，以數據化方式呈現仲景組方的性味結構特徵。</p>
       </Section>
 
@@ -465,7 +635,7 @@ function AboutPage() {
       </Section>
 
       <Section title="五、性味爭議藥物">
-        <p>以下藥物的性味在《神農本草經》與後世本草之間存在差異，或本研究的處理方式需要特別說明。本研究原則上以《神農本草經》為準，但列出爭議供研究者參考。</p>
+        <p>以下藥物的性味在本研究中經過研究者手動補正（表中標示「手動」者）。手動補正的原因包括：本草經未記載四氣（需引用後世文獻補充）、或本草經記載與臨床實踐明顯不符（需調整五味）。本研究原則上以《神農本草經》為準，但列出補正緣由供研究者參考。</p>
         <DefTable
           headers={["藥物", "本研究取值", "本草經原文", "後世觀點 / 爭議"]}
           rows={[
@@ -477,11 +647,17 @@ function AboutPage() {
             ["細辛", "辛溫（手動）", "（本草經無獨立條目）", "本草經未見細辛獨立條目，本研究依《名醫別錄》「味辛溫」補充。後世有「細辛不過錢」之說，用量爭議亦大。"],
             ["赤石脂", "甘平", "五石脂　味甘平", "本草經將青石脂、赤石脂、黃石脂、白石脂、黑石脂合為一條，統稱味甘平。後世認為赤石脂味甘酸溫，與本草經有異。"],
             ["麻仁 / 麻子仁", "辛平", "麻蕡　味辛平", "本草經載麻蕡味辛平，但麻子仁為大麻種仁，後世多認為味甘平，潤腸通便。辛味與甘味之別影響方劑五味分析。"],
+            ["黃連", "寒（手動）", "黃連　味苦無毒", "本草經僅載「苦無毒」，未載四氣。《中藥學》明確記載為寒性。本研究依《中藥學》設定為寒。"],
+            ["桔梗", "平（手動）", "桔梗　味苦無毒", "本草經僅載「苦無毒」，未載四氣。《中藥學》教材記載為平性。本研究依《中藥學》設定為平。"],
+            ["茵陳蒿", "微寒（手動）", "茵陳蒿　味苦無毒", "本草經僅載「苦無毒」，未載四氣。《名醫別錄》載「茵陳蒿：微寒」。本研究依《名醫別錄》設定為微寒。"],
+            ["秦皮", "寒（手動）", "秦皮　味酸無毒", "本草經僅載「酸無毒」，未載四氣。《名醫別錄》載「秦皮：寒」。本研究依《名醫別錄》設定為寒。"],
+            ["柴胡", "苦、辛（手動）", "茨胡　味苦平", "《神農本草經》載柴胡「味苦」，未載辛味。然現代中藥學明確記載柴胡具有「升散」之功，屬辛味。本研究將柴胡五味由「苦」更正為「苦、辛」，使方劑之辛味計算得以與臨床功能相符，支援「少陽為樞」之病機判定邏輯。"],
+            ["黃芩", "寒（手動）", "黃芩　味苦平", "本草經載「味苦平」，未明確四氣。臨床實踐中黃芩主治諸熱黃疸，清熱燥濕，功效以寒涼為主，故設定為寒性。"],
           ]}
         />
       </Section>
 
-      <Section title="六、研究限制">
+      <Section title="六、限制">
         <p>1. <strong>性味來源單一</strong>：僅取《神農本草經》之記載，未參照後世本草（如《本草經集注》《名醫別錄》等）的增補修訂。部分藥物在本草經中的四氣記載缺失（如芍藥僅載「味苦」無四氣），此類藥物在計算寒熱指數時不納入四氣權重。</p>
         <p>2. <strong>五味疊加</strong>：一味藥可兼具多味（如桂枝辛甘），計算時每個味分別乘以該藥用量，因此五味百分比之和可能超過 100%。此為設計選擇，旨在忠實反映藥物的複合味性。</p>
         <p>3. <strong>用量換算為估算</strong>：升、合等容量單位換算為兩時，因不同藥材密度差異，存在誤差。本研究取統一近似值，重在方劑內各藥的相對比例而非絕對重量。</p>
@@ -498,7 +674,11 @@ function AboutPage() {
         <p style={{ paddingLeft:16 }}>
           <strong>未來改進方向</strong>：若能整合宋《證類本草》中保存的《名醫別錄》性味增補及《雷公炮炙論》炮製記載，可進一步建立更完整的炮製修正體系。惟此二書原書已佚，僅存轉引內容，需審慎考證後方可採用。
         </p>
-        <p>5. <strong>歸經未納入</strong>：《神農本草經》未明確記載歸經，故本研究僅分析五味與四氣兩個維度。</p>
+        <p>5. <strong>歸經未納入</strong>：《神農本草經》未明確記載歸經，故本研究僅分析五味與四氣兩個維度。（本項目已於 2026-04-16 更新：歸經資料已補入，請見下方說明）</p>
+        <p>6. <strong>歸經來源</strong>：方劑中各藥物的歸經，依據現代中醫院校教材《中藥學》所載之歸經結論填入。用於支援「開闔樞」門戶邏輯與病機自動診斷模組（TCM Qi-Engine）。研究中每一味藥的歸經判定，均以中醫院校共識為準，非取自單一文獻或個人詮釋。</p>
+        
+        
+        
       </Section>
 
       <Section title="七、參考文獻">
@@ -667,6 +847,8 @@ function ClauseItem({ cl, isLast }) {
 
 function DetailPanel({ selected, compare, setCompare, isFav, onToggleFav, onAddCompare, onClose, filteredList, onNavigate, compareList, compareLimit = COMPARE_LIMIT }) {
   const [expandedHerb, setExpandedHerb] = useState(null);
+  const [showQi, setShowQi] = useState(false);
+  const qi = useMemo(() => new TcmQiEngine(selected), [selected]);
   const [compareNotice, setCompareNotice] = useState("");
   useEffect(() => {
     setCompareNotice("");
@@ -829,6 +1011,56 @@ function DetailPanel({ selected, compare, setCompare, isFav, onToggleFav, onAddC
         </div>
       </div>
       )}
+
+      {/* ===== 氣化解析 ===== */}
+      <div style={{ marginTop:20 }}>
+        <button onClick={() => setShowQi(!showQi)} style={{
+          width:"100%", padding:"10px 14px", borderRadius:8,
+          border:"1px solid " + (showQi ? "#2c3e50" : "#ddd"),
+          background: showQi ? "#2c3e50" : "#fff",
+          color: showQi ? "#fff" : "#555",
+          fontWeight:700, fontSize:13, cursor:"pointer",
+          display:"flex", alignItems:"center", justifyContent:"space-between",
+          transition:"all 0.2s"
+        }}>
+          <span>🌊 氣化解析（阿銘醫師設計）</span>
+          <span style={{ fontSize:11 }}>{showQi ? "▲ 收合" : "▼ 展開"}</span>
+        </button>
+        {showQi && (() => {
+          let r;
+          try { r = qi.render(); } catch(e) { console.error("Qi engine error:", e); return null; }
+          const qiBox = {
+            marginTop:12, padding:"14px 16px", borderRadius:10,
+            background:"#faf8f5", border:"1px solid #e8e4df"
+          };
+          const qiRow = (label, val) => val ? (
+            <div style={{ marginBottom:10 }}>
+              <div style={{ fontSize:11, color:"#999", fontWeight:600, marginBottom:3 }}>{label}</div>
+              <div style={{ fontSize:13, color:"#333", lineHeight:1.7 }}>{val}</div>
+            </div>
+          ) : null;
+          return (
+            <div style={qiBox}>
+              {qiRow("能量背景", r.能量背景)}
+              {r.空間向量 !== "【氣化平調】" && qiRow("空間向量", r.空間向量)}
+              {qiRow("作用靶點", r.作用靶點)}
+              {qiRow("病機解析", r.病機解析)}
+              {qiRow("治療意圖", r.治療意圖)}
+              <div style={{ marginTop:14, paddingTop:12, borderTop:"1px solid #e0dcd8", fontSize:12, color:"#888", lineHeight:1.7 }}>
+                本分析由 TcmQiEngine 自動生成・僅供研究輔助
+              </div>
+              <div style={{
+                marginTop:14, padding:"12px 14px", borderRadius:8,
+                background:"#fef9f0", color:"#5c4a3a",
+                fontSize:13, lineHeight:1.8
+              }}>
+                <div style={{ fontWeight:700, marginBottom:6, color:"#D4A017" }}>🌊 氣化總結</div>
+                <div>{r.qiSummary}</div>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
     </div>
   );
 }
@@ -859,9 +1091,11 @@ function ComparePage({ compareList, setCompareList }) {
     return Number.isFinite(n) ? n : 0;
   };
   const buildFlavorSummary = (base, target) => {
-    const dominantChanged = base.pf !== target.pf
-      ? `主味由${base.pf}轉為${target.pf}`
-      : `主味維持${base.pf}`;
+    const basePf = base.pf || Object.keys(base.fp || {}).reduce((a,b) => (base.fp[b]||0) > (base.fp[a]||0) ? b : a, "甘");
+    const targetPf = target.pf || Object.keys(target.fp || {}).reduce((a,b) => (target.fp[b]||0) > (target.fp[a]||0) ? b : a, "甘");
+    const dominantChanged = basePf !== targetPf
+      ? `主味由${targetPf}取代${basePf}`
+      : `主味維持${basePf}`;
     const deltas = FLAVORS
       .map((f) => ({ f, diff: toNum(target.fp[f]) - toNum(base.fp[f]) }))
       .filter((x) => Math.abs(x.diff) >= 3)
@@ -871,6 +1105,32 @@ function ComparePage({ compareList, setCompareList }) {
     if (deltas.length === 0) return `${dominantChanged}，五味比例接近`;
     return `${dominantChanged}，${deltas.join("、")}`;
   };
+  // 整合 TcmQiEngine 病機分析到比較摘要
+  const getEngineLabel = (fm) => {
+    try {
+    const v = (fm && fm.fp) || {};
+    const ns = (fm && fm.ns) || 0;
+    const hd = (fm && fm.hd) || [];
+    const organs = [...new Set((hd || []).flatMap(h => (h && h.jg) || []))];
+    const 辛=v.get('辛',0), 酸=v.get('酸',0), 苦=v.get('苦',0), 甘=v.get('甘',0), 鹹=v.get('鹹',0);
+    if (v.get('酸',0) >= 50 && 辛 >= 15 && 苦 >= 10) return ["厥陰寒熱錯雜","極致內斂","P1"];
+    if (hd.some(h=>h.n==='附子') && organs.includes('腎') && ns >= 0.3) return ["少陰陽衰","溫陽蒸騰","P0.5"];
+    if (甘 > 30 && organs.includes('心') && organs.includes('腎') && Math.abs(ns) < 0.5) return ["陰血虧損","內斂滋濡","P2"];
+    if (苦 >= 15 && 鹹 >= 10 && organs.includes('大腸')) return ["熱結實邪","向心沉降","P3"];
+    const hasSurface = hd.some(h => ["麻黃","桂枝","生薑","葛根","細辛"].includes(h.n));
+    if (辛 >= 20 && 甘 >= 30 && !hasSurface) return ["陽氣虛衰","溫煦內斂","P3.5"];
+    if (苦 >= 15 && 辛 >= 15 && organs.includes('脾')) {
+      if (organs.includes('膽')) return ["少陽樞紐不利","樞紐旋轉","P4"];
+      const hb = hd.some(h => ["黃連","黃芩"].includes(h.n));
+      const ha = hd.some(h => ["乾薑","生薑","半夏"].includes(h.n));
+      if (hb && ha) return ["中焦氣機痞塞","中道旋轉","P4"];
+    }
+    if (辛 >= 20 && (酸 + 苦*0.5) >= 辛*0.3) return ["營衛不和","解肌舒脈","P5"];
+    if (辛 >= 20) return ["衛閉營鬱","強力發散","P5"];
+    return ["氣化平調", 苦 > 辛 ? "向心沉降" : "氣化平調","P5"];
+    } catch(e) { return ["氣化平調","氣化平調","P5"]; }
+  };
+
   const buildDeltaSummary = (base, target) => {
     const baseMap = Object.fromEntries(base.hd.map(h => [h.n, toNum(h.w)]));
     const targetMap = Object.fromEntries(target.hd.map(h => [h.n, toNum(h.w)]));
@@ -882,18 +1142,63 @@ function ComparePage({ compareList, setCompareList }) {
       .filter(x => Math.abs(x.diff) >= 0.5)
       .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
       .map(x => `${x.name}${x.diff > 0 ? "增" : "減"}${formatNum(Math.abs(x.diff))}兩`);
-    const parts = [];
-    parts.push(`五味：${buildFlavorSummary(base, target)}`);
-    if (added.length) parts.push(`增${added.slice(0, 3).join("、")}`);
-    if (removed.length) parts.push(`去${removed.slice(0, 3).join("、")}`);
-    if (adjusted.length) parts.push(`並調整${adjusted.slice(0, 3).join("、")}`);
-    if (!added.length && !removed.length && !adjusted.length) {
-      parts.push("藥味組成無明顯增減");
-    }
+
+    const baseEngine = getEngineLabel(base);
+    const targetEngine = getEngineLabel(target);
+    const baseVec = baseEngine[1];
+    const targetVec = targetEngine[1];
+    const basePath = baseEngine[0];
+    const targetPath = targetEngine[0];
+
     const nsDiff = target.ns - base.ns;
-    const tendency = nsDiff > 0.35 ? "寒熱傾向較溫" : nsDiff < -0.35 ? "寒熱傾向較寒" : "寒熱傾向接近";
-    parts.push(tendency);
-    return `相較${base.n}，${target.n}：${parts.join("；")}。`;
+    const getNsWord = (n) => n > 0.5 ? "偏溫" : n < -0.5 ? "偏寒" : "寒熱接近";
+
+    // 組成的變化描述
+    let herbChange = "";
+    if (added.length && removed.length) {
+      herbChange = `增 ${added.slice(0,2).join("、")}，去 ${removed.slice(0,2).join("、")}`;
+    } else if (added.length) {
+      herbChange = `增 ${added.slice(0,2).join("、")}`;
+    } else if (removed.length) {
+      herbChange = `去 ${removed.slice(0,2).join("、")}`;
+    } else if (adjusted.length) {
+      herbChange = `調整 ${adjusted.slice(0,2).join("、")}`;
+    } else {
+      herbChange = "組成不變";
+    }
+
+    // 分組變化報告
+    const flavorDeltas = FLAVORS
+      .map(f => ({ f, diff: toNum(target.fp[f]) - toNum(base.fp[f]) }))
+      .filter(x => Math.abs(x.diff) >= 2)
+      .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+    const doseAdjusted = target.hd
+      .filter(h => h.n in baseMap)
+      .map(h => ({ n: h.n, diff: toNum(h.w) - baseMap[h.n], baseW: baseMap[h.n], targetW: toNum(h.w) }))
+      .filter(x => Math.abs(x.diff) >= 0.3)
+      .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+
+    return {
+      targetName: target.n,
+      baseName: base.n,
+      baseLabel: `${base.n}（${basePath}）`,
+      targetLabel: `${target.n}（${targetPath}）`,
+      baseVec: baseVec,
+      targetVec: targetVec,
+      vectorSame: baseVec === targetVec,
+      baseNs: getNsWord(base.ns),
+      targetNs: getNsWord(target.ns),
+      nsDiff: nsDiff,
+      nsAbs: Math.abs(nsDiff),
+      nsDirChanged: getNsWord(base.ns) !== getNsWord(target.ns),
+      flavorDeltas: flavorDeltas,
+      added: added,
+      removed: removed,
+      doseAdjusted: doseAdjusted,
+      doseUnchanged: target.hd
+        .filter(h => h.n in baseMap)
+        .map(h => h.n),
+    };
   };
   const comparisonSummary = items.length > 1 ? items.slice(1).map(target => buildDeltaSummary(items[0], target)) : [];
 
@@ -999,14 +1304,91 @@ function ComparePage({ compareList, setCompareList }) {
             ))}
           </div>
 
-          {/* Key summary */}
+          {/* 氣化變化視覺圖 */}
           {comparisonSummary.length > 0 && (
             <div style={{ background:"#fff", borderRadius:12, padding:20, border:"1px solid #eee", marginBottom:16 }}>
-              <div style={{ fontSize:12, color:"#888", marginBottom:10 }}>關鍵變化摘要（以 {items[0].n} 為基準）</div>
-              <div style={{ display:"grid", gap:8 }}>
-                {comparisonSummary.map((line, i) => (
-                  <div key={i} style={{ fontSize:13, lineHeight:1.75, color:"#555", background:"#faf8f5", border:"1px solid #efeae3", borderRadius:8, padding:"10px 12px" }}>
-                    {line}
+              <div style={{ fontSize:12, color:"#888", marginBottom:14 }}>
+                  🌊 氣化變化摘要｜<span style={{ color:"#2c3e50", fontWeight:700 }}>{items[0].n}</span> 為基準方
+                </div>
+              <div style={{ display:"grid", gap:16 }}>
+                {comparisonSummary.map((item, i) => (
+                  <div key={i} style={{ background:"#faf8f5", border:"1px solid #e5dfd5", borderRadius:12, padding:"16px 18px" }}>
+
+                    {/* 基準→目標箭頭圖 */}
+                    <div style={{ display:"flex", alignItems:"center", gap:0, marginBottom:14, flexWrap:"wrap" }}>
+                      {/* 左卡 */}
+                      <div style={{ flex:"0 0 auto", background:"#fff", border:"2px solid #ddd", borderRadius:10, padding:"10px 14px", minWidth:160, textAlign:"center" }}>
+                        <div style={{ fontSize:11, color:"#888", marginBottom:4 }}>{item.baseName}</div>
+                        <div style={{ fontSize:13, fontWeight:700, color:"#333", marginBottom:4 }}>{item.baseVec !== "氣化平調" ? item.baseVec : null}</div>
+                        <div style={{ fontSize:11, color:"#888" }}>{item.basePath}</div>
+                        <div style={{ marginTop:6, padding:"3px 8px", borderRadius:6, fontSize:11, display:"inline-block", background: item.baseNs.includes("溫") ? "#FDEDEC" : item.baseNs.includes("寒") ? "#EBF5FB" : "#FFFDE7", color: item.baseNs.includes("溫") ? "#C0392B" : item.baseNs.includes("寒") ? "#1A5276" : "#666" }}>
+                          {item.baseNs.includes("溫") ? "🔥" : item.baseNs.includes("寒") ? "❄️" : "❄️🔥"} {item.baseNs}
+                        </div>
+                      </div>
+
+                      {/* 箭頭區 */}
+                      <div style={{ flex:"1", display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"0 12px", minWidth:120 }}>
+                        <div style={{ fontSize:20, color:"#C94435", textAlign:"center" }}>→</div>
+                        <div style={{ fontSize:10, color:"#aaa", textAlign:"center" }}>
+                          {item.vectorSame && !item.nsDirChanged ? "同向量" : "方向/向量改變"}
+                        </div>
+                        <div style={{ fontSize:10, padding:"2px 8px", borderRadius:10, background: item.nsDirChanged ? (item.nsDiff > 0 ? "#FDEDEC" : "#EBF5FB") : "#F2F3F4", color: item.nsDirChanged ? (item.nsDiff > 0 ? "#C0392B" : "#1A5276") : "#999", textAlign:"center" }}>
+                          {item.nsDirChanged ? (item.nsDiff > 0 ? "方向改變（趨溫）" : "方向改變（趨寒）") : "寒熱不變"}
+                        </div>
+                      </div>
+
+                      {/* 右卡 */}
+                      <div style={{ flex:"0 0 auto", background: item.vectorSame ? "#fff" : "#FFF8E8", border:"2px solid " + (item.vectorSame ? "#ddd" : "#D4A017"), borderRadius:10, padding:"10px 14px", minWidth:160, textAlign:"center" }}>
+                        <div style={{ fontSize:11, color:"#888", marginBottom:4 }}>{item.targetName}</div>
+                        <div style={{ fontSize:13, fontWeight:700, color: item.vectorSame ? "#333" : "#D4A017", marginBottom:4 }}>{item.targetVec !== "氣化平調" ? item.targetVec : null}</div>
+                        <div style={{ fontSize:11, color:"#888" }}>{item.targetPath}</div>
+                        <div style={{ marginTop:6, padding:"3px 8px", borderRadius:6, fontSize:11, display:"inline-block", background: item.targetNs.includes("溫") ? "#FDEDEC" : item.targetNs.includes("寒") ? "#EBF5FB" : "#FFFDE7", color: item.targetNs.includes("溫") ? "#C0392B" : item.targetNs.includes("寒") ? "#1A5276" : "#666" }}>
+                          {item.targetNs.includes("溫") ? "🔥" : item.targetNs.includes("寒") ? "❄️" : "❄️🔥"} {item.targetNs}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 分組變化報告 */}
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, fontSize:12 }}>
+                      {/* 藥物增減 */}
+                      <div style={{ background:"#fff", borderRadius:8, padding:"10px 12px", border:"1px solid #eee" }}>
+                        <div style={{ fontWeight:700, color:"#C94435", marginBottom:6, fontSize:11 }}>💊 藥物增減</div>
+                        {item.added.length > 0 && <div style={{ color:"#27AE60", marginBottom:3 }}>➕ {item.added.join("、")}</div>}
+                        {item.removed.length > 0 && <div style={{ color:"#C0392B", marginBottom:3 }}>➖ {item.removed.join("、")}</div>}
+                        {item.added.length === 0 && item.removed.length === 0 && <div style={{ color:"#888" }}>組成不變</div>}
+                      </div>
+
+                      {/* 劑量調整 */}
+                      <div style={{ background:"#fff", borderRadius:8, padding:"10px 12px", border:"1px solid #eee" }}>
+                        <div style={{ fontWeight:700, color:"#C94435", marginBottom:6, fontSize:11 }}>⚖️ 劑量調整</div>
+                        {item.doseAdjusted.length > 0
+                          ? item.doseAdjusted.slice(0,3).map(d => (
+                              <div key={d.n} style={{ color:"#555", marginBottom:2 }}>
+                                {d.n}：{formatNum(d.baseW)}→{formatNum(d.targetW)}兩
+                                <span style={{ color: d.diff > 0 ? "#27AE60" : "#C0392B", fontSize:10 }}>
+                                  ({d.diff > 0 ? "+" : ""}{formatNum(d.diff)})
+                                </span>
+                              </div>
+                            ))
+                          : item.doseUnchanged.length > 0
+                            ? <div style={{ color:"#888", fontSize:11, lineHeight:1.6 }}>劑量不變：{item.doseUnchanged.slice(0,4).join("、")}{item.doseUnchanged.length > 4 ? "..." : ""}</div>
+                            : <div style={{ color:"#888", fontSize:11 }}>無共同藥物</div>}
+                      </div>
+
+                      {/* 五味變化（全寬） */}
+                      <div style={{ gridColumn:"1 / -1", background:"#fff", borderRadius:8, padding:"10px 12px", border:"1px solid #eee" }}>
+                        <div style={{ fontWeight:700, color:"#C94435", marginBottom:6, fontSize:11 }}>🔥 五味位移</div>
+                        {item.flavorDeltas.length > 0
+                          ? <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                              {item.flavorDeltas.map(d => (
+                                <span key={d.f} style={{ padding:"2px 10px", borderRadius:20, fontSize:12, background: d.diff > 0 ? "#FDEDEC" : "#EBF5FB", color: d.diff > 0 ? "#C0392B" : "#1A5276" }}>
+                                  {d.f} {d.diff > 0 ? "↑" : "↓"}{formatNum(Math.abs(d.diff))}%
+                                </span>
+                              ))}
+                            </div>
+                          : <div style={{ color:"#888" }}>五味比例接近</div>}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1048,6 +1430,182 @@ function ComparePage({ compareList, setCompareList }) {
     </div>
   );
 }
+
+
+
+function HerbDBPage() {
+  const [search, setSearch] = useState("");
+  const [selectedHerb, setSelectedHerb] = useState(null);
+
+  const herbs = HERB_DATABASE;
+  const herbList = Object.keys(herbs).sort();
+
+  const filtered = search.trim()
+    ? herbList.filter(n => n.includes(search.trim()) || herbs[n].作用.includes(search))
+    : herbList;
+
+  const FLAVOR_COLORS_H = {
+    "寒": "#5B8FB9", "涼": "#7BAFD4", "平": "#8FBC8F", "溫": "#E8A87C", "熱": "#D9534F",
+    "甘": "#D4A017", "辛": "#A0A0A0", "苦": "#C94435", "酸": "#3A8F5C", "鹹": "#34495E",
+    "淡": "#90A4AE"
+  };
+
+  return (
+    <div style={{ padding:"20px 24px", maxWidth:1100, margin:"0 auto" }}>
+      {/* Search */}
+      <div style={{ marginBottom:20 }}>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="搜尋藥物名稱或功效..."
+          style={{
+            width:"100%", padding:"12px 16px", fontSize:15, border:"1.5px solid #d0ccc6",
+            borderRadius:10, outline:"none", background:"#fff", color:"#333"
+          }}
+        />
+      </div>
+
+      <div style={{ display:"flex", gap:20, alignItems:"flex-start" }}>
+        {/* List */}
+        <div style={{
+          width:260, maxHeight:"calc(100vh - 200px)", overflowY:"auto",
+          background:"#fff", borderRadius:12, border:"1px solid #e0dcd8",
+          boxShadow:"0 2px 8px rgba(0,0,0,0.06)"
+        }}>
+          {filtered.map(name => (
+            <div
+              key={name}
+              onClick={() => setSelectedHerb(name)}
+              style={{
+                padding:"10px 16px", cursor:"pointer",
+                borderBottom:"1px solid #f0eeeb",
+                background: selectedHerb === name ? "#f0f7ff" : "transparent",
+                color: selectedHerb === name ? "#1a5a8a" : "#333",
+                fontWeight: selectedHerb === name ? 600 : 400,
+                fontSize:14, transition:"all 0.15s"
+              }}
+              onMouseEnter={e => { if(selectedHerb !== name) e.target.style.background = "#f9f8f6"; }}
+              onMouseLeave={e => { if(selectedHerb !== name) e.target.style.background = "transparent"; }}
+            >
+              {name}
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div style={{ padding:20, color:"#999", textAlign:"center", fontSize:13 }}>
+              無符合的藥物
+            </div>
+          )}
+        </div>
+
+        {/* Detail */}
+        {selectedHerb ? (() => {
+          const h = herbs[selectedHerb];
+          return (
+            <div style={{
+              flex:1, background:"#fff", borderRadius:12, border:"1px solid #e0dcd8",
+              padding:"28px 32px", boxShadow:"0 2px 8px rgba(0,0,0,0.06)"
+            }}>
+              <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:24 }}>
+                <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                  <div style={{
+                    background:"linear-gradient(135deg, #1a1a2e, #0f3460)",
+                    color:"#fff", borderRadius:12, padding:"10px 20px", fontSize:20, fontWeight:700
+                  }}>
+                    {selectedHerb}
+                  </div>
+                  {herbs[selectedHerb].本草經名 && herbs[selectedHerb].本草經名 !== selectedHerb && (
+                    <div style={{
+                      fontSize:12, color:"#888", padding:"0 4px", letterSpacing:1
+                    }}>
+                      《神農本草經》作：{herbs[selectedHerb].本草經名}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 四氣五味 */}
+              <div style={{ display:"flex", gap:16, marginBottom:20 }}>
+                <div style={{
+                  flex:1, background:"#f8f6f1", borderRadius:10, padding:"16px 20px",
+                  borderLeft:"4px solid #1a1a2e"
+                }}>
+                  <div style={{ fontSize:12, color:"#888", marginBottom:6, letterSpacing:1 }}>四氣</div>
+                  <div style={{ fontSize:22, fontWeight:700, color:"#1a1a2e" }}>{h.四氣}</div>
+                </div>
+                <div style={{
+                  flex:1, background:"#f8f6f1", borderRadius:10, padding:"16px 20px",
+                  borderLeft:"4px solid #c94435"
+                }}>
+                  <div style={{ fontSize:12, color:"#888", marginBottom:6, letterSpacing:1 }}>五味</div>
+                  <div style={{ fontSize:22, fontWeight:700, color:"#c94435" }}>{h.五味}</div>
+                </div>
+              </div>
+
+              {/* 歸經 */}
+              <div style={{ marginBottom:20 }}>
+                <div style={{ fontSize:12, color:"#888", marginBottom:8, letterSpacing:1 }}>歸經</div>
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                  {h.歸經.length === 0
+                    ? <span style={{ color:"#bbb", fontStyle:"italic" }}>無記載</span>
+                    : h.歸經.map(j => (
+                      <span key={j} style={{
+                        background:"#e8f4e8", color:"#2e7d32",
+                        padding:"4px 12px", borderRadius:20, fontSize:13, fontWeight:600
+                      }}>{j}</span>
+                    ))
+                  }
+                </div>
+              </div>
+
+              {/* 作用 */}
+              <div style={{ marginBottom:20 }}>
+                <div style={{ fontSize:12, color:"#888", marginBottom:8, letterSpacing:1 }}>作用</div>
+                <div style={{
+                  background:"#faf8f5", borderRadius:10, padding:"14px 18px",
+                  fontSize:15, color:"#444", lineHeight:1.8, border:"1px solid #e8e4dc"
+                }}>
+                  {h.作用}
+                </div>
+              </div>
+
+              {/* Flavor pills */}
+              <div>
+                <div style={{ fontSize:12, color:"#888", marginBottom:8, letterSpacing:1 }}>五味視覺</div>
+                <div style={{ display:"flex", gap:8 }}>
+                  {h.五味.split("、").map(f => {
+                    const color = FLAVOR_COLORS_H[f] || "#888";
+                    return (
+                      <span key={f} style={{
+                        background:color, color:"#fff",
+                        padding:"4px 12px", borderRadius:20, fontSize:13
+                      }}>{f}</span>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* 按 說明 */}
+              {h.按 && (
+                <div style={{ marginTop:16, padding:"12px 16px", background:"#f8f5ef",
+                  borderRadius:8, border:"1px solid #e0d8c8", fontSize:12, color:"#666",
+                  lineHeight:1.8, fontStyle:"italic" }}>
+                  【按】{h.按}
+                </div>
+              )}
+            </div>
+          );
+        })() : (
+          <div style={{
+            flex:1, background:"#fff", borderRadius:12, border:"1px solid #e0dcd8",
+            padding:"60px 40px", textAlign:"center", color:"#bbb", fontSize:15
+          }}>
+            請選擇左側藥物查詢性味、歸經與作用
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 function QuizPage({ favs }) {
   const browserStorage = createBrowserStorageAdapter(window.localStorage);
@@ -1414,7 +1972,7 @@ function App() {
           以《神農本草經》五味四氣數據為基礎，結合藥物用量加權計算，對趙開美翻刻宋本《傷寒論》{DATA.length} 首方劑進行性味結構量化分析。每首方劑附有組成原文、煎服法、宋本、桂林古本、康治本三版本條文異文比較，以及各藥物之《神農本草經》原文對照。
         </p>
         <div style={{ display:"flex", gap:4, marginTop:16, flexWrap:"wrap" }}>
-          {[["analysis","方劑分析"],["compare","方劑比較"],["quiz","方劑測驗"],["about","研究說明"],["author","關於作者"]].map(([k,label]) => (
+          {[["analysis","方劑分析"],["compare","方劑比較"],["quiz","方劑測驗"],["herb","藥物資料庫"],["about","網站說明"],["author","關於作者"]].map(([k,label]) => (
             <button key={k} onClick={() => setPage(k)} style={{
               padding:"8px 20px", borderRadius:"8px 8px 0 0", border:"none", cursor:"pointer",
               fontSize:14, fontWeight:600, letterSpacing:1,
@@ -1426,7 +1984,7 @@ function App() {
         </div>
       </div>
 
-      {page === "about" ? <AboutPage /> : page === "author" ? <AuthorPage /> : page === "compare" ? <ComparePage compareList={compareList} setCompareList={setCompareList} /> : page === "quiz" ? <QuizPage favs={favs} /> : (
+      {page === "herb" ? <HerbDBPage /> : page === "about" ? <AboutPage /> : page === "author" ? <AuthorPage /> : page === "compare" ? <ComparePage compareList={compareList} setCompareList={setCompareList} /> : page === "quiz" ? <QuizPage favs={favs} /> : (
       <div style={{ padding:"20px 24px", maxWidth:960, margin:"0 auto" }}>
         <OverviewStats data={filtered} />
 
