@@ -92,6 +92,50 @@ class TcmQiEngine {
   const surface = this.getSurfaceVector();
   let results = [];
 
+  // 【先驗規則：白虎湯攔截】(針對白虎湯、白虎加人參湯)
+  if (this.herbs.includes("石膏") && this.herbs.includes("知母")) {
+    this.finalVectorOverride = "【清潤透達】辛寒清熱，益氣生津";
+    return ["陽明氣分大熱 (辛寒清熱 / 煩渴引飲)"];
+  }
+
+  // 【先驗規則：清熱生津攔截】(針對竹葉石膏湯)
+  if (this.herbs.includes("石膏") && (this.herbs.includes("竹葉") || this.herbs.includes("麥門冬"))) {
+    this.finalVectorOverride = "【清潤收斂】清熱除煩，益氣生津";
+    return ["餘熱未清 (氣陰兩傷 / 辛寒清散)"];
+  }
+
+  // 【先驗規則：葛根芩連攔截】(針對葛根黃芩黃連湯)
+  if (this.herbs.includes("葛根") && this.herbs.includes("黃芩") && this.herbs.includes("黃連")) {
+    this.finalVectorOverride = "【清降逆流】昇陽止利，清熱燥濕";
+    return ["協熱下利 (表邪下陷 / 清熱解表)"];
+  }
+
+  // 【先驗規則：厥陰溫通攔截】(針對當歸四逆加吳茱萸生薑湯)
+  if (this.herbs.includes("當歸") && (this.herbs.includes("吳茱萸") || this.herbs.includes("吳茱"))) {
+    this.finalVectorOverride = "【溫通經脈】溫經散寒，養血通脈";
+    return ["厥陰血寒 (溫經通脈 / 內有久寒)"];
+  }
+
+  // 【先驗規則：溫降平逆】(針對吳茱萸湯)
+  if (this.herbs.includes("吳茱萸") && this.herbs.includes("生薑") &&
+      !this.herbs.includes("麻黃") && !this.herbs.includes("桂枝")) {
+    this.finalVectorOverride = "【溫降平逆】暖肝溫胃，降逆止嘔";
+    return ["厥陰肝寒犯胃 (乾嘔吐涎 / 頭痛)"];
+  }
+
+  // 【先驗規則：宣肺化飲】(針對小青龍湯)
+  if (this.herbs.includes("麻黃") && this.herbs.includes("細辛") &&
+      (this.herbs.includes("五味子") || this.herbs.includes("半夏"))) {
+    this.finalVectorOverride = "【宣肺化飲】外解風寒，內散水飲";
+    return ["外寒內飲 (表不解 / 咳喘有痰)"];
+  }
+
+  // 【先驗規則：逐瘀破結】(針對桃核承氣湯)
+  if (this.herbs.includes("桃仁") && this.herbs.includes("桂枝") && this.herbs.includes("大黃")) {
+    this.finalVectorOverride = "【逐瘀破結】通下瘀熱，活血化瘀";
+    return ["太陽隨經入腑 (其人如狂 / 下焦蓄血)"];
+  }
+
   // 【P0 厥陰重鎮】(優先級最高，解決烏梅丸)
   if (酸 >= 50 && 辛 >= 15 && 苦 >= 10) {
    this.finalVectorOverride = "【極致內斂】酸收重鎮，辛以入陰，苦以清降";
@@ -99,7 +143,7 @@ class TcmQiEngine {
   }
 
   // 【P0.5 少陰陽衰】(附子+腎，解決真武湯)
-  if (this.herbs.includes("附子") && this.organs.includes("腎")) {
+  if (this.herbs.includes("附子") && this.organs.includes("腎") && ns >= 0.1) {
    this.finalVectorOverride = "【溫陽蒸騰】提振底火，化氣行水";
    return ["少陰陽衰 (溫陽化氣 / 鎮水消腫)"];
   }
@@ -129,7 +173,7 @@ class TcmQiEngine {
   }
 
   // 【P5 溫中復陽】(解決甘草乾薑湯/理中丸；排除瀉心湯)
-  const hasExpelHerb = this.herbs.some(h => ["麻黃", "桂枝", "葛根", "細辛"].includes(h));
+  const hasExpelHerb = this.herbs.some(h => ["麻黃", "桂枝", "葛根", "細辛", "生薑"].includes(h));
   const hasBitterCold = this.herbs.some(h => ["黃連", "黃芩"].includes(h));
   if (辛 >= 20 && 甘 >= 30 && !hasExpelHerb && !hasBitterCold) {
    this.finalVectorOverride = "【溫煦內斂】守中復陽，化氣生津";
@@ -1317,14 +1361,24 @@ function ComparePage({ compareList, setCompareList }) {
                     {/* 基準→目標箭頭圖 */}
                     <div style={{ display:"flex", alignItems:"center", gap:0, marginBottom:14, flexWrap:"wrap" }}>
                       {/* 左卡 */}
-                      <div style={{ flex:"0 0 auto", background:"#fff", border:"2px solid #ddd", borderRadius:10, padding:"10px 14px", minWidth:160, textAlign:"center" }}>
-                        <div style={{ fontSize:11, color:"#888", marginBottom:4 }}>{item.baseName}</div>
-                        <div style={{ fontSize:13, fontWeight:700, color:"#333", marginBottom:4 }}>{item.baseVec !== "氣化平調" ? item.baseVec : null}</div>
-                        <div style={{ fontSize:11, color:"#888" }}>{item.basePath}</div>
-                        <div style={{ marginTop:6, padding:"3px 8px", borderRadius:6, fontSize:11, display:"inline-block", background: item.baseNs.includes("溫") ? "#FDEDEC" : item.baseNs.includes("寒") ? "#EBF5FB" : "#FFFDE7", color: item.baseNs.includes("溫") ? "#C0392B" : item.baseNs.includes("寒") ? "#1A5276" : "#666" }}>
-                          {item.baseNs.includes("溫") ? "🔥" : item.baseNs.includes("寒") ? "❄️" : "❄️🔥"} {item.baseNs}
+                      {(() => {
+                        const isNeutral = item.baseNs.includes("寒熱接近");
+                        const isWarm = item.baseNs.includes("溫");
+                        const isCold = item.baseNs.includes("寒");
+                        const nsEmoji = isNeutral ? "❄️🔥" : isWarm ? "🔥" : isCold ? "❄️" : "❄️🔥";
+                        const nsBg = isNeutral ? "#FFFDE7" : isWarm ? "#FDEDEC" : isCold ? "#EBF5FB" : "#FFFDE7";
+                        const nsColor = isNeutral ? "#666" : isWarm ? "#C0392B" : isCold ? "#1A5276" : "#666";
+                        return (
+                        <div style={{ flex:"0 0 auto", background:"#fff", border:"2px solid #ddd", borderRadius:10, padding:"10px 14px", minWidth:160, textAlign:"center" }}>
+                          <div style={{ fontSize:11, color:"#888", marginBottom:4 }}>{item.baseName}</div>
+                          <div style={{ fontSize:13, fontWeight:700, color:"#333", marginBottom:4 }}>{item.baseVec !== "氣化平調" ? item.baseVec : null}</div>
+                          <div style={{ fontSize:11, color:"#888" }}>{item.basePath}</div>
+                          <div style={{ marginTop:6, padding:"3px 8px", borderRadius:6, fontSize:11, display:"inline-block", background: nsBg, color: nsColor }}>
+                            {nsEmoji} {item.baseNs}
+                          </div>
                         </div>
-                      </div>
+                        );
+                      })()}
 
                       {/* 箭頭區 */}
                       <div style={{ flex:"1", display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"0 12px", minWidth:120 }}>
