@@ -12,15 +12,15 @@
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>傷寒論方劑性味分析</title>
-<meta name="description" content="以《神農本草經》五味四氣數據，結合藥物用量加權，分析趙開美翻刻宋本《傷寒論》方劑之性味結構">
+<title>傷寒方析｜傷寒論方劑・症候研究平台</title>
+<meta name="description" content="《傷寒論》數位研究平台：以宋本 112 首方劑為底本，結合《神農本草經》五味四氣進行性味量化分析，整合方劑分析、症候檢索、方劑比較、測驗與藥物資料庫，支援宋本、桂林古本、康治本三版本條文異文對照。">
 <meta name="author" content="吳啓銘">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="shortcut icon" href="assets/favicon.svg">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="傷寒方析">
-<meta property="og:title" content="傷寒論方劑性味分析">
-<meta property="og:description" content="方劑性味分析、方劑比較、測驗與錯題複習工具">
+<meta property="og:title" content="傷寒方析｜傷寒論方劑・症候研究平台">
+<meta property="og:description" content="方劑性味分析、症候檢索、方劑比較、測驗與錯題複習、藥物資料庫——結合宋本、桂林古本、康治本的傷寒論研究平台。">
 <meta property="og:url" content="https://chimungwu.github.io/shanghan-research/">
 <meta property="og:image" content="https://chimungwu.github.io/shanghan-research/assets/og-cover-a3.png">
 <meta property="og:image:secure_url" content="https://chimungwu.github.io/shanghan-research/assets/og-cover-a3.png">
@@ -28,8 +28,8 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="傷寒論方劑性味分析">
-<meta name="twitter:description" content="方劑性味分析、方劑比較、測驗與錯題複習工具">
+<meta name="twitter:title" content="傷寒方析｜傷寒論方劑・症候研究平台">
+<meta name="twitter:description" content="方劑性味分析、症候檢索、方劑比較、測驗與錯題複習、藥物資料庫——結合宋本、桂林古本、康治本的傷寒論研究平台。">
 <meta name="twitter:image" content="https://chimungwu.github.io/shanghan-research/assets/og-cover-a3.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;800&family=Noto+Serif+TC:wght@600;700;800&display=swap" rel="stylesheet">
@@ -2444,10 +2444,10 @@ function App() {
       {/* Header */}
       <div style={{ background:"linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)", color:"#fff", padding:"32px 24px 24px" }}>
         <h1 style={{ margin:0, fontSize:26, fontWeight:800, fontFamily:"'Noto Serif TC', serif", letterSpacing:2 }}>
-          傷寒論方劑性味分析
+          傷寒方析｜傷寒論方劑・症候研究平台
         </h1>
         <p style={{ margin:"8px 0 0", fontSize:13, opacity:0.65, lineHeight:1.8 }}>
-          以《神農本草經》五味四氣數據為基礎，結合藥物用量加權計算，對趙開美翻刻宋本《傷寒論》{DATA.length} 首方劑進行性味結構量化分析。每首方劑附有組成原文、煎服法、宋本、桂林古本、康治本三版本條文異文比較，以及各藥物之《神農本草經》原文對照。
+          以趙開美翻刻宋本《傷寒論》{DATA.length} 首方劑為底本，結合《神農本草經》五味四氣數據，對方劑進行性味結構量化分析。網站整合五大工具：方劑分析（性味量化與氣機推導）、症候檢索（由症狀反查條文與對應方劑）、方劑比較（多方性味與組成對照）、方劑測驗（含錯題複習）、藥物資料庫；條文支援宋本、桂林古本、康治本三版本異文比較。
         </p>
         <div style={{ display:"flex", gap:4, marginTop:16, flexWrap:"wrap" }}>
           {[["analysis","方劑分析"],["symptom","症候檢索"],["compare","方劑比較"],["quiz","方劑測驗"],["herb","藥物資料庫"],["about","網站說明"],["author","關於作者"]].map(([k,label]) => (
