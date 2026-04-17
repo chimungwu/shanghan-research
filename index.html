@@ -834,11 +834,23 @@ function AboutPage() {
         <p style={{ paddingLeft:16 }}>
           <strong>未來改進方向</strong>：若能整合宋《證類本草》中保存的《名醫別錄》性味增補及《雷公炮炙論》炮製記載，可進一步建立更完整的炮製修正體系。惟此二書原書已佚，僅存轉引內容，需審慎考證後方可採用。
         </p>
-        <p>5. <strong>歸經未納入</strong>：《神農本草經》未明確記載歸經，故本研究僅分析五味與四氣兩個維度。（本項目已於 2026-04-16 更新：歸經資料已補入，請見下方說明）</p>
-        <p>6. <strong>歸經來源</strong>：方劑中各藥物的歸經，依據現代中醫院校教材《中藥學》所載之歸經結論填入。用於支援「開闔樞」門戶邏輯與病機自動診斷模組（TCM Qi-Engine）。研究中每一味藥的歸經判定，均以中醫院校共識為準，非取自單一文獻或個人詮釋。</p>
-        
-        
-        
+        <p>5. <strong>歸經未納入《神農本草經》</strong>：《本經》未明確記載歸經。《本經》僅以「味」「氣」為綱，不言臟腑歸屬。故本研究之五味四氣分析仍以《本經》為唯一數據源，不混入歸經影響。</p>
+        <p>6. <strong>歸經資料來源（2026-04-17 更新）</strong>：本研究 86 味藥物之歸經資料，採「本草文獻為本、教材共識為輔」之雙軌校訂方式建立：</p>
+        <p style={{ paddingLeft:16 }}>
+          <strong>（1）本草文獻依據</strong>：以《名醫別錄》（保存於《本草經集注》朱墨分書、《證類本草》轉引）、《證類本草》（宋·唐慎微）為主要本草古籍來源，取其五臟歸屬、臟腑主治記載。
+        </p>
+        <p style={{ paddingLeft:16 }}>
+          <strong>（2）教材共識校訂</strong>：以現代中醫藥院校《中藥學》規劃教材（上海科學技術出版社、人民衛生出版社通行版）所載「歸經」欄為主流共識依據，凡本草古籍記載與教材不合者，以教材共識為準；教材記載歧異者，取最廣被採納之集合（如黃柏：腎、膀胱、大腸；吳茱萸：肝、脾、胃、腎）。
+        </p>
+        <p style={{ paddingLeft:16 }}>
+          <strong>（3）傷寒論藥物歧義處理</strong>：凡《傷寒論》原文所用藥名與後世通稱有別者，以傷寒論原名為鍵值並注明同用藥物（如「黃檗」即黃柏、「麻子仁」即麻仁、「栝蔞根」即天花粉、「肥梔子」同梔子）。同名藥物歸經一致，不作區分。
+        </p>
+        <p style={{ paddingLeft:16 }}>
+          <strong>（4）校訂結果分佈</strong>：86 味藥中，44 味保留原有歸經（教材與古籍一致）、28 味補入原缺資料、11 味增補次要歸經、3 味校正為主流共識（芍藥：改為肝、脾；蜀椒：改為脾、胃、腎；茯苓：去肺留心、脾、腎）。
+        </p>
+        <p style={{ paddingLeft:16 }}>
+          <strong>（5）應用範圍</strong>：歸經資料僅用於支援「開闔樞」門戶邏輯、病機自動診斷（TCM Qi-Engine v5.3.3），以及藥物資料庫檢索。不參與五味四氣定量分析，確保《本經》性味計算結果之純度。
+        </p>
       </Section>
 
       <Section title="七、參考文獻">
@@ -1633,7 +1645,7 @@ function HerbDBPage() {
   return (
     <div style={{ padding:"20px 24px", maxWidth:1100, margin:"0 auto" }}>
       {/* Search */}
-      <div style={{ marginBottom:20 }}>
+      <div style={{ marginBottom:12 }}>
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
@@ -1644,6 +1656,37 @@ function HerbDBPage() {
           }}
         />
       </div>
+
+      {/* 歸經資料來源說明 */}
+      <details style={{
+        marginBottom:20, padding:"10px 14px",
+        background:"#fafaf7", border:"1px solid #e8e4dc", borderRadius:8,
+        fontSize:12.5, color:"#666", lineHeight:1.8
+      }}>
+        <summary style={{ cursor:"pointer", color:"#8a6e3d", fontWeight:600 }}>
+          關於歸經資料來源與校訂方法（本研究 86 味藥）
+        </summary>
+        <div style={{ marginTop:10, paddingLeft:4 }}>
+          <p style={{ margin:"4px 0" }}>
+            <strong>性味四氣</strong>：取自《神農本草經》，為唯一數據源，不混入後世增補，確保方劑性味量化結果之純度。
+          </p>
+          <p style={{ margin:"4px 0" }}>
+            <strong>歸經資料</strong>：《本經》未記歸經，故採「本草文獻＋教材共識」雙軌建立：
+          </p>
+          <p style={{ margin:"4px 0", paddingLeft:14 }}>
+            ① <strong>本草依據</strong>：以《名醫別錄》《證類本草》之五臟歸屬記載為古籍底本。
+          </p>
+          <p style={{ margin:"4px 0", paddingLeft:14 }}>
+            ② <strong>教材共識</strong>：現代中醫藥院校《中藥學》規劃教材所載之主流歸經；教材歧異者取最廣被採納之集合。
+          </p>
+          <p style={{ margin:"4px 0", paddingLeft:14 }}>
+            ③ <strong>校訂分佈</strong>：86 味中，44 味保留、28 味補入原缺、11 味增補次要、3 味校正主流（芍藥改肝脾；蜀椒改脾胃腎；茯苓去肺留心脾腎）。
+          </p>
+          <p style={{ margin:"4px 0" }}>
+            <strong>用途</strong>：歸經僅用於 TCM Qi-Engine 開闔樞門戶邏輯與藥物資料庫檢索，不參與性味量化。詳見「網站說明」→「六、限制」第 6 項。
+          </p>
+        </div>
+      </details>
 
       <div style={{ display:"flex", gap:20, alignItems:"flex-start" }}>
         {/* List */}
