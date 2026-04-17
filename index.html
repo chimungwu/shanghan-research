@@ -2090,6 +2090,304 @@ function QuizPage({ favs }) {
   );
 }
 
+// ============================================================
+// 症候檢索 Symptom Search
+// ============================================================
+const SYMPTOM_SYNONYMS = [
+  ["發熱","身熱","翕翕發熱","灼熱","壯熱","潮熱","發潮熱","蒸蒸發熱","身大熱","身灼熱","手足濈然汗出而熱"],
+  ["惡寒","畏寒","嗇嗇惡寒","凜凜惡寒","振寒","寒慄","憎寒","微惡寒"],
+  ["惡風","淅淅惡風","當風","惡風寒"],
+  ["頭痛","頭疼","頭項強痛","頭痛項強"],
+  ["項強","項背強","項背強几几","強几几","項強几几"],
+  ["汗出","自汗","汗自出","微汗","大汗出","汗多","漐漐汗出","濈濈汗出","手足濈然汗出"],
+  ["無汗","不汗出"],
+  ["喘","氣喘","喘逆","上氣","喘息","喘促","喘而汗出","微喘"],
+  ["咳","咳嗽","咳逆","欬"],
+  ["嘔","乾嘔","嘔吐","嘔逆","喜嘔","欲嘔","嘔不止","食穀欲嘔"],
+  ["下利","自下利","利下","下痢","自利","瀉痢","泄利","利清水","協熱利","利不止","暴煩下利","下利清穀"],
+  ["不大便","大便難","不更衣","便閉","大便硬","便鞕","燥屎","大便不通","大便秘"],
+  ["口渴","渴","欲飲水","引飲","大煩渴","消渴","渴欲飲水","口乾","舌上乾燥","口燥咽乾","舌乾"],
+  ["小便不利","小便少","小便難","小便不通"],
+  ["小便自利","小便利","小便清長","小便數"],
+  ["煩躁","煩","心煩","躁煩","躁擾","煩亂","虛煩","煩熱","煩悶","微煩"],
+  ["譫語","讝語","鄭聲","獨語","語言錯亂","亂語"],
+  ["胸滿","胸悶","胸脅苦滿","胸脅滿","胸中滿","胸脅煩滿"],
+  ["心下痞","心下痞硬","心下滿","心下支結","心下悸","心中懊憹","心下堅","心下硬滿"],
+  ["腹痛","腹中痛","少腹痛","少腹急結","繞臍痛","腹中急痛","腹中雷鳴"],
+  ["腹滿","腹脹滿","腹大滿","小腹滿","腹滿痛"],
+  ["脈浮","浮脈","脈浮緊","脈浮緩","脈浮數","浮而有力","脈浮弱"],
+  ["脈沉","沉脈","脈沉細","脈沉遲","脈沉緊","沉緊"],
+  ["脈微","微脈","脈微細","脈微欲絕","脈弱","脈細"],
+  ["脈緊","浮緊"],
+  ["脈緩","浮緩"],
+  ["脈數","數脈"],
+  ["脈遲","遲脈"],
+  ["脈弦","弦脈","脈弦細","弦數"],
+  ["脈結代","結代","結脈","代脈","脈促"],
+  ["身痛","身疼","身體疼痛","骨節疼","骨節疼痛","一身盡痛","肢節煩疼","百節疼痛","身重疼痛"],
+  ["四肢厥冷","手足厥冷","四逆","厥逆","厥","手足厥","手足逆冷","四肢厥","手足寒","手足冷"],
+  ["身黃","發黃","面目黃","身目俱黃","色黃","黃疸","瘀熱在裏"],
+  ["鼻塞","鼻鳴","鼻塞流涕","鼻涕","鼻衄","衄"],
+  ["眩","目眩","眩冒","頭眩","眼花","目赤","頭重眩","顛眩"],
+  ["咽痛","咽喉痛","咽乾","咽中痛","喉痺","少陰咽痛","咽中傷","咽中生瘡"],
+  ["失眠","不得眠","不得臥","臥不安","心中煩不得眠","不能臥"],
+  ["身重","身體疼重","身沉重","四肢沉重","體重"],
+  ["口苦","口中苦"],
+  ["吐血","嘔血","衄血","鼻衄"],
+  ["便血","下血","圊血","便膿血","下利膿血"],
+  ["小便血","尿血","血尿"],
+  ["蓄血","熱入血室","如狂","發狂","少腹硬滿","少腹急結"],
+  ["水氣","停飲","心下有水氣","水逆","水入則吐"],
+  ["不能食","不欲食","默默不欲飲食","食欲不振","饑不能食","飢不欲食"],
+  ["痞","痞硬","痞滿"],
+];
+
+const SYMPTOM_PRESETS = [
+  ["發熱","惡寒","惡風","頭痛","汗出","無汗","項強"],
+  ["嘔","下利","不大便","腹痛","腹滿","心下痞"],
+  ["口渴","煩躁","譫語","胸滿","小便不利"],
+  ["脈浮","脈沉","脈微","脈弦","脈緊","脈數"],
+  ["四肢厥冷","身痛","身黃","咽痛","咳","喘"],
+];
+
+function findSynonyms(term) {
+  const t = (term || "").trim();
+  if (!t) return [];
+  const set = new Set([t]);
+  SYMPTOM_SYNONYMS.forEach(g => {
+    if (g.some(w => w === t || t.indexOf(w) >= 0 || w.indexOf(t) >= 0)) {
+      g.forEach(w => set.add(w));
+    }
+  });
+  return Array.from(set);
+}
+
+function parseSymptomTokens(s) {
+  return (s || "").split(/[\s,，、;；]+/g).map(x => x.trim()).filter(Boolean);
+}
+
+function renderHighlight(text, terms) {
+  if (!text || !terms || terms.length === 0) return text;
+  const sorted = [...terms].filter(Boolean).sort((a,b) => b.length - a.length);
+  let parts = [{ text, mark: false }];
+  sorted.forEach(term => {
+    const next = [];
+    parts.forEach(p => {
+      if (p.mark) { next.push(p); return; }
+      const segs = p.text.split(term);
+      for (let k = 0; k < segs.length; k++) {
+        if (segs[k]) next.push({ text: segs[k], mark: false });
+        if (k < segs.length - 1) next.push({ text: term, mark: true });
+      }
+    });
+    parts = next;
+  });
+  return parts.map((p, i) => p.mark
+    ? <mark key={i} style={{ background:"#FFE082", color:"#BF360C", padding:"0 2px", borderRadius:2, fontWeight:700 }}>{p.text}</mark>
+    : <React.Fragment key={i}>{p.text}</React.Fragment>
+  );
+}
+
+function SymptomSearchPage({ setPage, setSelected }) {
+  const [query, setQuery] = useState("");
+  const [mode, setMode] = useState("AND");
+  const [submitted, setSubmitted] = useState("");
+  const [submittedMode, setSubmittedMode] = useState("AND");
+  const [showVariant, setShowVariant] = useState({});
+
+  const addTerm = (t) => {
+    const current = parseSymptomTokens(query);
+    if (current.indexOf(t) >= 0) return;
+    setQuery([...current, t].join(" "));
+  };
+
+  const doSearch = () => {
+    setSubmitted(query.trim());
+    setSubmittedMode(mode);
+    setShowVariant({});
+  };
+
+  const clearAll = () => {
+    setQuery("");
+    setSubmitted("");
+    setShowVariant({});
+  };
+
+  const onKey = (e) => { if (e.key === "Enter") doSearch(); };
+
+  const tokens = parseSymptomTokens(submitted);
+  const expandedPerToken = tokens.map(t => findSynonyms(t));
+  const allExpansions = Array.from(new Set(expandedPerToken.flat()));
+
+  const results = useMemo(() => {
+    if (tokens.length === 0) return [];
+    const seen = new Map();
+    DATA.forEach(fm => {
+      (fm.cl || []).forEach(cl => {
+        const text = cl.t || "";
+        const matchedTokenSet = new Set();
+        const matchedTermSet = new Set();
+        tokens.forEach((tk, idx) => {
+          expandedPerToken[idx].forEach(syn => {
+            if (text.indexOf(syn) >= 0) {
+              matchedTokenSet.add(tk);
+              matchedTermSet.add(syn);
+            }
+          });
+        });
+        if (matchedTokenSet.size === 0) return;
+        if (submittedMode === "AND" && matchedTokenSet.size < tokens.length) return;
+        const key = String(cl.num);
+        if (!seen.has(key)) {
+          seen.set(key, {
+            num: cl.num,
+            text: cl.t,
+            diffs: cl.d || [],
+            formulas: [fm.n],
+            matchedTokens: Array.from(matchedTokenSet),
+            matchedTerms: Array.from(matchedTermSet),
+          });
+        } else {
+          const existing = seen.get(key);
+          if (existing.formulas.indexOf(fm.n) < 0) existing.formulas.push(fm.n);
+          matchedTokenSet.forEach(t => { if (existing.matchedTokens.indexOf(t) < 0) existing.matchedTokens.push(t); });
+          matchedTermSet.forEach(t => { if (existing.matchedTerms.indexOf(t) < 0) existing.matchedTerms.push(t); });
+        }
+      });
+    });
+    const arr = Array.from(seen.values());
+    arr.sort((a,b) => {
+      if (b.matchedTokens.length !== a.matchedTokens.length) return b.matchedTokens.length - a.matchedTokens.length;
+      return (a.num||0) - (b.num||0);
+    });
+    return arr;
+  }, [submitted, submittedMode]);
+
+  const formulaHitCount = useMemo(() => {
+    const map = {};
+    results.forEach(r => { r.formulas.forEach(f => { map[f] = (map[f]||0)+1; }); });
+    return Object.entries(map).sort((a,b) => b[1]-a[1]);
+  }, [results]);
+
+  const jumpToFormula = (name) => {
+    const fm = DATA.find(d => d.n === name);
+    if (!fm) return;
+    setSelected(fm);
+    setPage("analysis");
+    window.scrollTo({ top:0, behavior:"smooth" });
+  };
+
+  const totalClauses = DATA.reduce((s,d)=>s+((d.cl&&d.cl.length)||0),0);
+
+  return (
+    <div style={{ padding:"20px 24px", maxWidth:960, margin:"0 auto" }}>
+      <div style={{ background:"#fff", borderRadius:12, padding:20, border:"1px solid #eee", marginBottom:16 }}>
+        <div style={{ fontSize:17, fontWeight:700, color:"#1a1a2e", marginBottom:4, fontFamily:"'Noto Serif TC',serif" }}>症候檢索</div>
+        <div style={{ fontSize:12, color:"#888", marginBottom:14, lineHeight:1.8 }}>
+          輸入一個或多個症狀（以空格、逗號或頓號分隔），系統以「關鍵字模糊比對 + 同義詞表」擴充，回傳傷寒論條文與對應方劑。同義詞表含 {SYMPTOM_SYNONYMS.length} 組常見症候群組（如「惡寒 / 嗇嗇惡寒 / 振寒」視為同義）。
+        </div>
+        <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap", alignItems:"center" }}>
+          <input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={onKey}
+            placeholder="例如：頭痛 發熱 惡寒"
+            style={{ flex:1, minWidth:220, padding:"10px 14px", borderRadius:8, border:"1px solid #ddd", fontSize:14, outline:"none" }} />
+          <div style={{ display:"flex", border:"1px solid #ddd", borderRadius:8, overflow:"hidden" }}>
+            <button onClick={()=>setMode("AND")} style={{ padding:"8px 14px", border:"none", cursor:"pointer", background: mode==="AND" ? "#2c3e50" : "#fff", color: mode==="AND" ? "#fff" : "#666", fontSize:13, fontWeight:600 }}>AND 交集</button>
+            <button onClick={()=>setMode("OR")} style={{ padding:"8px 14px", border:"none", cursor:"pointer", borderLeft:"1px solid #ddd", background: mode==="OR" ? "#2c3e50" : "#fff", color: mode==="OR" ? "#fff" : "#666", fontSize:13, fontWeight:600 }}>OR 聯集</button>
+          </div>
+          <button onClick={doSearch} style={{ padding:"10px 22px", borderRadius:8, border:"none", cursor:"pointer", background:"#D4A017", color:"#fff", fontSize:14, fontWeight:700, letterSpacing:2 }}>搜尋</button>
+          {query && (<button onClick={clearAll} style={{ padding:"10px 14px", borderRadius:8, border:"1px solid #ddd", cursor:"pointer", background:"#fff", color:"#888", fontSize:13 }}>清除</button>)}
+        </div>
+        <div style={{ fontSize:11, color:"#999", marginBottom:6 }}>常用症狀（點擊加入）：</div>
+        {SYMPTOM_PRESETS.map((row, ri) => (
+          <div key={ri} style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:6 }}>
+            {row.map(s => (
+              <button key={s} onClick={()=>addTerm(s)} style={{ padding:"4px 12px", borderRadius:16, border:"1px solid #e0ddd8", cursor:"pointer", fontSize:12, background:"#FAF8F4", color:"#555" }}>+ {s}</button>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {submitted && tokens.length > 0 && (
+        <div style={{ background:"#fff", borderRadius:12, padding:16, border:"1px solid #eee", marginBottom:16 }}>
+          <div style={{ fontSize:13, color:"#555", marginBottom:8 }}>
+            <span style={{ fontWeight:700, marginRight:6 }}>查詢症狀：</span>
+            {tokens.map((t, i) => (<span key={i} style={{ display:"inline-block", padding:"3px 12px", borderRadius:14, background:"#2c3e50", color:"#fff", marginRight:6, fontSize:12, fontWeight:600 }}>{t}</span>))}
+            <span style={{ color:"#999", marginLeft:6, fontSize:11 }}>（{submittedMode==="AND" ? "AND 交集" : "OR 聯集"}）</span>
+          </div>
+          <div style={{ fontSize:11, color:"#999", lineHeight:1.8, marginTop:6 }}>
+            同義詞擴充共 <b>{allExpansions.length}</b> 比對詞：
+            {allExpansions.slice(0,40).map((e,i)=>(<span key={i} style={{ color:"#777", marginRight:6 }}>{e}</span>))}
+            {allExpansions.length > 40 ? " ... 等" : ""}
+          </div>
+          <div style={{ fontSize:13, color:"#666", marginTop:12 }}>
+            命中條文 <b style={{ color:"#C94435", fontSize:15 }}>{results.length}</b> 條，涉及 <b style={{ color:"#1a1a2e" }}>{formulaHitCount.length}</b> 首方劑
+          </div>
+          {formulaHitCount.length > 0 && (
+            <div style={{ marginTop:10 }}>
+              <div style={{ fontSize:11, color:"#999", marginBottom:6 }}>高頻對應方劑（點擊跳至分析頁）：</div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                {formulaHitCount.slice(0,30).map(([name,count]) => (
+                  <button key={name} onClick={()=>jumpToFormula(name)} style={{ padding:"4px 12px", borderRadius:14, border:"1px solid #D4A017", cursor:"pointer", fontSize:12, background:"#fff", color:"#8C6D10", fontWeight:600 }}>{name} <span style={{ opacity:0.6 }}>· {count}</span></button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {submitted && tokens.length > 0 && results.length === 0 && (
+        <div style={{ background:"#fff", borderRadius:12, padding:40, textAlign:"center", color:"#999", border:"1px solid #eee", fontSize:13, lineHeight:1.8 }}>
+          查無符合條件的條文。{submittedMode==="AND" ? "可嘗試切換為 OR 聯集檢索，或減少症狀數。" : "請重新確認關鍵字，或嘗試同義詞（如「惡寒」改「畏寒」）。"}
+        </div>
+      )}
+
+      {results.map((r, idx) => (
+        <div key={idx} style={{ background:"#fff", borderRadius:12, padding:16, border:"1px solid #eee", marginBottom:10 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:8 }}>
+            <span style={{ display:"inline-block", fontSize:11, fontWeight:700, color:"#fff", background:"#1a1a2e", borderRadius:4, padding:"2px 10px", fontFamily:"monospace" }}>#{r.num}</span>
+            <span style={{ fontSize:11, color: r.matchedTokens.length === tokens.length ? "#2E7D32" : "#F57C00", fontWeight:600 }}>命中 {r.matchedTokens.length}/{tokens.length} 症狀</span>
+            <span style={{ fontSize:10, color:"#999" }}>· 命中詞：{r.matchedTerms.slice(0,6).join("、")}{r.matchedTerms.length>6?"...":""}</span>
+            {r.diffs.length > 0 && (
+              <span onClick={()=>setShowVariant(v=>({...v, [r.num]: !v[r.num]}))} style={{ fontSize:10, color:"#C94435", cursor:"pointer", fontWeight:600, padding:"2px 8px", borderRadius:3, border:"1px solid #C94435", marginLeft:"auto" }}>{showVariant[r.num] ? "收合異文" : `異文 ${r.diffs.length}`}</span>
+            )}
+          </div>
+          <div style={{ fontSize:14, lineHeight:2.0, color:"#333", marginBottom:10, fontFamily:"'Noto Serif TC',serif" }}>
+            {renderHighlight(r.text, r.matchedTerms)}
+          </div>
+          {showVariant[r.num] && r.diffs.length > 0 && (
+            <div style={{ margin:"6px 0 12px 0", paddingLeft:10, borderLeft:"2px solid #e0ddd8" }}>
+              {r.diffs.map((d, j) => (
+                <div key={j} style={{ fontSize:12, lineHeight:1.9, color:"#666", marginBottom:6 }}>
+                  <span style={{ display:"inline-block", fontSize:9, fontWeight:700, color: d.v === "桂" ? "#2E86C1" : "#E67E22", background: d.v === "桂" ? "#EBF5FB" : "#FEF5E7", borderRadius:3, padding:"1px 6px", marginRight:6 }}>{d.v === "桂" ? "桂林古本" : "康治本"}</span>
+                  {renderHighlight(d.t, r.matchedTerms)}
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ fontSize:12, color:"#888", borderTop:"1px dashed #eee", paddingTop:8, display:"flex", flexWrap:"wrap", alignItems:"center", gap:4 }}>
+            <span>對應方劑：</span>
+            {r.formulas.map((f) => (
+              <button key={f} onClick={()=>jumpToFormula(f)} style={{ background:"#F7F5F2", border:"1px solid #D4A017", cursor:"pointer", color:"#8C6D10", fontSize:12, fontWeight:700, padding:"2px 10px", borderRadius:12 }}>{f} →</button>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {!submitted && (
+        <div style={{ background:"#fff", borderRadius:12, padding:32, textAlign:"center", color:"#aaa", border:"1px solid #eee", lineHeight:1.9 }}>
+          <div style={{ fontSize:14, marginBottom:8, color:"#666" }}>請於上方輸入症狀進行查詢</div>
+          <div style={{ fontSize:11 }}>支援：頭痛、發熱、惡寒、汗出、下利、脈浮 等。多症狀以空格、逗號或頓號分隔。</div>
+        </div>
+      )}
+
+      <div style={{ fontSize:10, color:"#bbb", textAlign:"center", padding:"16px 0", lineHeight:1.8 }}>
+        症候檢索以宋本條文（共 {totalClauses} 筆條文－方劑對應，{DATA.length} 首方劑）為比對範圍。同義詞表為概要擴充，僅供研究輔助，不作臨床診斷依據。
+      </div>
+    </div>
+  );
+}
+
+
 function App() {
   const browserStorage = createBrowserStorageAdapter(window.localStorage);
   const favoritesStore = createFavoritesStore(browserStorage);
@@ -2152,7 +2450,7 @@ function App() {
           以《神農本草經》五味四氣數據為基礎，結合藥物用量加權計算，對趙開美翻刻宋本《傷寒論》{DATA.length} 首方劑進行性味結構量化分析。每首方劑附有組成原文、煎服法、宋本、桂林古本、康治本三版本條文異文比較，以及各藥物之《神農本草經》原文對照。
         </p>
         <div style={{ display:"flex", gap:4, marginTop:16, flexWrap:"wrap" }}>
-          {[["analysis","方劑分析"],["compare","方劑比較"],["quiz","方劑測驗"],["herb","藥物資料庫"],["about","網站說明"],["author","關於作者"]].map(([k,label]) => (
+          {[["analysis","方劑分析"],["symptom","症候檢索"],["compare","方劑比較"],["quiz","方劑測驗"],["herb","藥物資料庫"],["about","網站說明"],["author","關於作者"]].map(([k,label]) => (
             <button key={k} onClick={() => setPage(k)} style={{
               padding:"8px 20px", borderRadius:"8px 8px 0 0", border:"none", cursor:"pointer",
               fontSize:14, fontWeight:600, letterSpacing:1,
@@ -2164,7 +2462,7 @@ function App() {
         </div>
       </div>
 
-      {page === "herb" ? <HerbDBPage /> : page === "about" ? <AboutPage /> : page === "author" ? <AuthorPage /> : page === "compare" ? <ComparePage compareList={compareList} setCompareList={setCompareList} /> : page === "quiz" ? <QuizPage favs={favs} /> : (
+      {page === "herb" ? <HerbDBPage /> : page === "about" ? <AboutPage /> : page === "author" ? <AuthorPage /> : page === "compare" ? <ComparePage compareList={compareList} setCompareList={setCompareList} /> : page === "quiz" ? <QuizPage favs={favs} /> : page === "symptom" ? <SymptomSearchPage setPage={setPage} setSelected={setSelected} /> : (
       <div style={{ padding:"20px 24px", maxWidth:960, margin:"0 auto" }}>
         <OverviewStats data={filtered} />
 
