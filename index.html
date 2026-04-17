@@ -40,8 +40,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js?v=20260416b"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js?v=20260416b"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js?v=20260416b"></script>
-<script src="herb_database.js?v=20260416b"></script>
-<script src="data.js?v=20260416b"></script>
+<script src="herb_database.js?v=20260417a"></script>
+<script src="data.js?v=20260417a"></script>
 <script src="core.browser.js?v=20260416b"></script>
 <script>
 // ====== TCM QI-ENGINE v5.3.3 ======
@@ -483,22 +483,28 @@ function HerbPill({ herb, expanded, onToggle }) {
   const bg = herb.t === "溫" ? "#FDEBD0" : herb.t === "微溫" ? "#FEF5E7" :
     herb.t === "寒" ? "#D6EAF8" : herb.t === "微寒" ? "#EBF5FB" :
     herb.t === "小寒" ? "#EBF5FB" : herb.t === "涼" ? "#E8F8F5" : "#F2F3F4";
-  const herbBtLines = expanded && herb.bt ? herb.bt.split(/\\n|\n/) : [];
+  // 本草經原文與按語由 HERB_DATABASE 查得，避免 data.js 重複儲存 (~100KB)
+  const herbInfo = (typeof HERB_DATABASE !== "undefined") ? HERB_DATABASE[herb.n] : null;
+  const herbBt = herbInfo
+    ? (herbInfo["作用"] || "") + (herbInfo["按"] ? "\n\n※" + herbInfo["按"] : "")
+    : (herb.bt || "");
+  const hasBt = !!herbBt;
+  const herbBtLines = expanded && hasBt ? herbBt.split(/\\n|\n/) : [];
   return (
     <div style={{ display:"inline-block", margin:"2px 3px", verticalAlign:"top" }}>
       <span onClick={onToggle} style={{
         display:"inline-flex", alignItems:"center", gap:4, padding:"3px 10px", borderRadius:20,
         background: expanded ? "#2c3e50" : bg, color: expanded ? "#fff" : "inherit",
         fontSize:13, border: expanded ? "1px solid #2c3e50" : "1px solid rgba(0,0,0,0.08)",
-        cursor: herb.bt ? "pointer" : "default", transition:"all 0.15s",
+        cursor: hasBt ? "pointer" : "default", transition:"all 0.15s",
       }}>
         <span style={{ fontWeight:600 }}>{herb.n}</span>
         <span style={{ opacity:0.6, fontSize:11 }}>{herb.w}兩</span>
         {herb.f.map(f => <span key={f} style={{ color: expanded ? "#ffd" : FLAVOR_COLORS[f], fontWeight:700, fontSize:11 }}>{f}</span>)}
         {herb.t && <span style={{ opacity:0.6, fontSize:10 }}>{herb.t}</span>}
-        {herb.bt && <span style={{ fontSize:9, opacity:0.5 }}>{expanded ? "▲" : "▼"}</span>}
+        {hasBt && <span style={{ fontSize:9, opacity:0.5 }}>{expanded ? "▲" : "▼"}</span>}
       </span>
-      {expanded && herb.bt && (
+      {expanded && hasBt && (
         <div style={{
           marginTop:6, padding:"12px 14px", borderRadius:10,
           background:"#faf8f5", border:"1px solid #e0d8c8",
@@ -843,7 +849,7 @@ function AboutPage() {
         <p style={{ paddingLeft:16 }}>
           <strong>未來改進方向</strong>：若能整合宋《證類本草》中保存的《名醫別錄》性味增補及《雷公炮炙論》炮製記載，可進一步建立更完整的炮製修正體系。惟此二書原書已佚，僅存轉引內容，需審慎考證後方可採用。
         </p>
-        <p>5. <strong>歸經未納入《神農本草經》</strong>：《本經》未明確記載歸經。《本經》僅以「味」「氣」為綱，不言臟腑歸屬。故本網站之五味四氣分析仍以《本經》為唯一數據源，不混入歸經影響。</p>
+        <p>5. <strong>歸經未納入《神農本草經》</strong>：《本經》未明確記載歸經。《本經》僅以「味」「氣」為綱，不言臟腑歸屬。故本網站之五味四氣分析主要參考《本經》，歸經則以《名醫別錄》《證類本草》與教材共識另行校訂，二者數據層次獨立。</p>
         <p>6. <strong>歸經資料來源（2026-04-17 更新）</strong>：本網站 86 味藥物之歸經資料，採「本草文獻為本、教材共識為輔」之雙軌校訂方式建立：</p>
         <p style={{ paddingLeft:16 }}>
           <strong>（1）本草文獻依據</strong>：以《名醫別錄》（保存於《本草經集注》朱墨分書、《證類本草》轉引）、《證類本草》（宋·唐慎微）為主要本草古籍來源，取其五臟歸屬、臟腑主治記載。
@@ -915,7 +921,7 @@ function AuthorPage() {
       </Section>
 
       <Section title="研究取向">
-        <p><strong>方法論</strong>：採「古籍文獻為本、量化分析為輔」雙軌並行。性味數據單一溯源於《神農本草經》不混入後世增補；歸經資料以本草文獻（《名醫別錄》《證類本草》）與現代教材共識雙軌校訂；炮製修正僅就文獻依據充分者（炙甘草、炮附子）進行調整。</p>
+        <p><strong>方法論</strong>：採「古籍文獻為本、量化分析為輔」雙軌並行。性味數據主要參考《神農本草經》，本經未獨立收錄之 10 味（粳米、膠飴、香豉、豬膚、人尿、豬膽汁、連軺、生梓白皮等）補以《名醫別錄》《本草綱目》，皆於按語明示文獻依據；歸經資料以本草文獻（《名醫別錄》《證類本草》）與現代教材共識雙軌校訂；炮製修正僅就文獻依據充分者（炙甘草、炮附子）進行調整。</p>
         <p><strong>學術範疇</strong>：傷寒論方劑之性味結構量化、開闔樞氣化機轉推導、方劑組成之臨床對應、條文版本異文對照（宋本、桂林古本、康治本、康平本）。</p>
         <p><strong>技術實作</strong>：前端以 React 18 單頁應用呈現，TCM Qi-Engine 氣化推導引擎依循六經開闔樞門戶邏輯自動診斷病機，支援方劑性味量化、症候反查、多方比較、組成測驗與藥物檢索五大模組。</p>
       </Section>
@@ -1704,7 +1710,7 @@ function HerbDBPage() {
         </summary>
         <div style={{ marginTop:10, paddingLeft:4 }}>
           <p style={{ margin:"4px 0" }}>
-            <strong>性味四氣</strong>：取自《神農本草經》，為唯一數據源，不混入後世增補，確保方劑性味量化結果之純度。
+            <strong>性味四氣</strong>：主要參考《神農本草經》；本經未獨立收錄者（粳米、膠飴、香豉、豬膚、人尿、豬膽汁、連軺、生梓白皮等 10 味）補以《名醫別錄》《本草綱目》等後世本草，並於按語明示文獻依據與補正原因。
           </p>
           <p style={{ margin:"4px 0" }}>
             <strong>歸經資料</strong>：《本經》未記歸經，故採「本草文獻＋教材共識」雙軌建立：
